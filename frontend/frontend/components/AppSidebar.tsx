@@ -133,7 +133,9 @@ export default function AppSidebar() {
             <div className="flex items-center space-x-3">
               <div>
                 <h1 className="text-base font-bold text-gray-900">E-SIMS</h1>
-                <p className="text-[10px] text-gray-500">POS System</p>
+                <p className="text-[10px] text-gray-500">
+                  Smart Inventory & Sale Management System
+                </p>
               </div>
             </div>
           </div>

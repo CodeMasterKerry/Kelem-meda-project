@@ -166,12 +166,14 @@ export const exportToExcel = async (req, res) => {
       data = sales.map((s) => ({
         Invoice: s.invoiceNumber,
         Date: s.createdAt.toLocaleDateString(),
+        Time: s.createdAt.toLocaleTimeString(),
+        Status: s.status,
+        Payment: s.paymentMethod || "N/A",
         Subtotal: s.subtotal,
         Discount: s.discount,
         VAT: s.vat,
         Total: s.totalAmount,
-        Status: s.status,
-        PreparedBy: s.preparedBy?.name || "N/A",
+        "Prepared By": s.preparedBy?.name || "N/A",
       }));
       filename = `Sales_Report${suffix}.xlsx`;
     } else {

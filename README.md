@@ -1,6 +1,6 @@
 E-SIMS
 
-the project worked on postgres for database,express and nodejs for backend and nextjs for frontend
+the project worked on postgres for database,express and nodejs for backend and next.js for frontend
 
 ## 1. Backend Setup & Execution
 

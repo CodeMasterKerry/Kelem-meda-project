@@ -122,6 +122,7 @@ export default function SalesOfficerReportsPage() {
     const headers = [
       "Invoice",
       "Date",
+      "Time",
       "Status",
       "Payment",
       "Subtotal",
@@ -129,17 +130,32 @@ export default function SalesOfficerReportsPage() {
       "VAT",
       "Total",
     ];
-    const rows = filteredSales.map((s) => [
-      s.invoiceNumber,
-      new Date(s.createdAt).toLocaleString(),
-      s.status,
-      s.paymentMethod || "",
-      s.subtotal.toFixed(2),
-      s.discount.toFixed(2),
-      s.vat.toFixed(2),
-      s.totalAmount.toFixed(2),
-    ]);
-    const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
+    const rows = filteredSales.map((s) => {
+      const dateObj = new Date(s.createdAt);
+      return [
+        s.invoiceNumber,
+        dateObj.toLocaleDateString(),
+        dateObj.toLocaleTimeString(),
+        s.status,
+        s.paymentMethod || "",
+        s.subtotal.toFixed(2),
+        s.discount.toFixed(2),
+        s.vat.toFixed(2),
+        s.totalAmount.toFixed(2),
+      ];
+    });
+
+    const escapeCSV = (val: string) => {
+      const s = String(val);
+      if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map(escapeCSV).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

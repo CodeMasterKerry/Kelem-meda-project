@@ -150,11 +150,18 @@ export default function LoginPage() {
                   type="text"
                   placeholder="Enter your username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
+                  onChange={handleUsernameChange}
                   disabled={isLoading}
-                  className="h-11"
+                  className={`h-11 ${validationErrors.username ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                  autoComplete="username"
+                  maxLength={50}
                 />
+                {validationErrors.username && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.username}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -165,10 +172,11 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
+                    onChange={handlePasswordChange}
                     disabled={isLoading}
-                    className="h-11 pr-10"
+                    className={`h-11 pr-10 ${validationErrors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                    autoComplete="current-password"
+                    maxLength={100}
                   />
                   <button
                     type="button"
@@ -186,12 +194,18 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
+                {validationErrors.password && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {validationErrors.password}
+                  </p>
+                )}
               </div>
 
               <Button
                 type="submit"
                 className="w-full h-11 bg-gradient-to-r from-[#1E5BA8] to-[#1E5BA8] hover:from-[#164a8f] hover:to-[#164a8f] text-white font-medium shadow-md hover:shadow-lg transition-all"
-                disabled={isLoading}
+                disabled={isLoading || !username.trim() || !password}
               >
                 {isLoading ? (
                   <>

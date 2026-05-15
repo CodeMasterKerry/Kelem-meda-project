@@ -11,6 +11,7 @@ interface SaleItem {
   discount?: number;
   vat?: number;
   total?: number;
+  product?: { name: string; sku: string };
   createdAt?: string;
 }
 
@@ -26,7 +27,9 @@ interface Sale {
   requiresApproval: boolean;
   status: "PENDING" | "APPROVED" | "REJECTED";
   preparedById: string;
+  preparedBy?: { id: string; name: string };
   approvedById?: string | null;
+  approvedBy?: { id: string; name: string } | null;
   salesOfficerId?: string;
   items: SaleItem[];
   createdAt: string;

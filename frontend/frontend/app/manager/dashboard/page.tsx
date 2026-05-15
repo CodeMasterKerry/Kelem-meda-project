@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuthStore, useProductStore, useSalesStore } from "@/store";
 import {
   Card,
@@ -12,8 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  TrendingUp,
-  Users,
   ShoppingBag,
   AlertCircle,
   CheckCircle,
@@ -45,7 +43,7 @@ export default function ManagerDashboard() {
       fetchProducts(token);
       fetchSales(token);
     }
-  }, [token]);
+  }, [token, fetchProducts, fetchSales]);
 
   // Calculate statistics
   const pendingApprovals = sales.filter((sale) => sale.status === "PENDING");
@@ -174,7 +172,7 @@ export default function ManagerDashboard() {
             , {user?.name?.split(" ")[0]}! 👋
           </h2>
           <p className="text-gray-600">
-            Here's your business overview for today.
+            Here&apos;s your business overview for today.
           </p>
         </div>
 
@@ -380,7 +378,7 @@ export default function ManagerDashboard() {
                 <div className="pt-4 border-t">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-medium text-gray-700">
-                      Today's Performance
+                      Today&apos;s Performance
                     </span>
                   </div>
                   <div className="space-y-2">

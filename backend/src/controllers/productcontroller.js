@@ -1,6 +1,5 @@
 import { prisma } from "../config/db.js";
 import { generateSKU } from "../utils/utils.js";
-import { createAuditLog } from "./auditcontroller.js";
 
 // Get all products with search and filtering
 export const getAllProducts = async (req, res) => {
@@ -106,9 +105,6 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    // Audit Log
-    await createAuditLog(req.user.id, "CREATE", "PRODUCT", product.id);
-
     res.status(201).json({ success: true, data: product });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -135,9 +131,6 @@ export const updateProduct = async (req, res) => {
       data: updateData,
     });
 
-    // Audit Log
-    await createAuditLog(req.user.id, "UPDATE", "PRODUCT", product.id);
-
     res.json({ success: true, data: product });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -152,9 +145,6 @@ export const deleteProduct = async (req, res) => {
       where: { id },
       data: { isDeleted: true },
     });
-
-    // Audit Log
-    await createAuditLog(req.user.id, "DELETE", "PRODUCT", id);
 
     res.json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
@@ -205,9 +195,6 @@ export const adjustStock = async (req, res) => {
 
       return updatedProduct;
     });
-
-    // Audit Log
-    await createAuditLog(req.user.id, "ADJUST_STOCK", "PRODUCT", id);
 
     res.json({ success: true, data: result });
   } catch (error) {

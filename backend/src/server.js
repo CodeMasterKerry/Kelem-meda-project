@@ -10,7 +10,6 @@ import categoryRoutes from "./routes/categoryroutes.js";
 import inventoryRoutes from "./routes/inventoryroutes.js";
 import approvalRoutes from "./routes/approvalroutes.js";
 import userRoutes from "./routes/userroutes.js";
-import auditRoutes from "./routes/auditroutes.js";
 
 const app = express();
 
@@ -34,7 +33,6 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/audit", auditRoutes);
 
 // ── 404 Handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {

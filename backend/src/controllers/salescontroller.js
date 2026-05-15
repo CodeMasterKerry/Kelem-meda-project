@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.js";
-import { createAuditLog } from "./auditcontroller.js";
+
 import {
   generateInvoiceNumber,
   calculateItemTotal,
@@ -103,11 +103,22 @@ export const createSale = async (req, res) => {
         include: { items: true },
       });
 
+      // 7. Record financial transaction if approved immediately
+      if (sale.status === "APPROVED") {
+        await tx.financialTransaction.create({
+          data: {
+            saleId: sale.id,
+            type: "INCOME",
+            amount: sale.totalAmount,
+            paymentMethod: sale.paymentMethod,
+            reference: sale.invoiceNumber,
+            description: `Payment for Sale ${sale.invoiceNumber}`,
+          },
+        });
+      }
+
       return sale;
     });
-
-    // Audit Log
-    await createAuditLog(req.body.preparedById, "CREATE_SALE", "SALE", result.id);
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
@@ -202,6 +213,20 @@ export const approveSale = async (req, res) => {
         },
       });
 
+      // If approved, record financial transaction
+      if (status === "APPROVED") {
+        await tx.financialTransaction.create({
+          data: {
+            saleId: sale.id,
+            type: "INCOME",
+            amount: sale.totalAmount,
+            paymentMethod: sale.paymentMethod,
+            reference: sale.invoiceNumber,
+            description: `Payment for Approved Sale ${sale.invoiceNumber}`,
+          },
+        });
+      }
+
       // 3. If rejected, rollback stock?
       // Business logic choice: usually, we hold stock until approved/rejected.
       // If rejected, we should add back the stock.
@@ -226,9 +251,6 @@ export const approveSale = async (req, res) => {
 
       return updated;
     });
-
-    // Audit Log
-    await createAuditLog(managerId, status === "APPROVED" ? "APPROVE_SALE" : "REJECT_SALE", "SALE", id);
 
     res.json({ success: true, data: updatedSale });
   } catch (error) {

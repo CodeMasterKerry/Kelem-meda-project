@@ -1,5 +1,4 @@
 import { prisma } from "../config/db.js";
-import { createAuditLog } from "./auditcontroller.js";
 
 // Get all categories
 export const getAllCategories = async (req, res) => {
@@ -81,9 +80,6 @@ export const createCategory = async (req, res) => {
       data: { name, isActive },
     });
 
-    // Audit Log
-    await createAuditLog(req.user.id, "CREATE", "CATEGORY", category.id.toString());
-
     res.status(201).json({ success: true, data: category });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -104,9 +100,6 @@ export const updateCategory = async (req, res) => {
       where: { id: parseInt(id) },
       data: updateData,
     });
-
-    // Audit Log
-    await createAuditLog(req.user.id, "UPDATE", "CATEGORY", id);
 
     res.json({ success: true, data: category });
   } catch (error) {
@@ -140,9 +133,6 @@ export const deleteCategory = async (req, res) => {
       where: { id: parseInt(id) },
     });
 
-    // Audit Log
-    await createAuditLog(req.user.id, "DELETE", "CATEGORY", id);
-
     res.json({ success: true, message: "Category deleted successfully" });
   } catch (error) {
     if (error.code === "P2025") {
@@ -173,9 +163,6 @@ export const toggleCategoryStatus = async (req, res) => {
       where: { id: parseInt(id) },
       data: { isActive: !category.isActive },
     });
-
-    // Audit Log
-    await createAuditLog(req.user.id, "TOGGLE_STATUS", "CATEGORY", id);
 
     res.json({ success: true, data: updated });
   } catch (error) {

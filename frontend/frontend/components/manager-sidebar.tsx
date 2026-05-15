@@ -6,13 +6,10 @@ import {
   CheckSquare,
   Package,
   BarChart3,
-  Users,
-  Settings,
   LogOut,
   TrendingUp,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { useAuthStore } from "@/store";
 import {
@@ -23,7 +20,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 

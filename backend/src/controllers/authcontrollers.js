@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/db.js";
-import { createAuditLog } from "./auditcontroller.js";
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET || "fallback_secret", {
@@ -29,9 +28,6 @@ export const register = async (req, res) => {
 
     const token = signToken(user.id);
     
-    // Audit Log
-    await createAuditLog(user.id, "REGISTER", "USER", user.id);
-
     res.status(201).json({ success: true, token, data: user });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -49,9 +45,6 @@ export const login = async (req, res) => {
 
     const token = signToken(user.id);
     const { password: _, ...safeUser } = user;
-
-    // Audit Log
-    await createAuditLog(user.id, "LOGIN", "USER", user.id);
 
     res.json({ success: true, token, data: safeUser });
   } catch (err) {

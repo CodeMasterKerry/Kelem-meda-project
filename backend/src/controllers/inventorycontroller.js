@@ -1,11 +1,14 @@
 import { prisma } from "../config/db.js";
 
-// Get all inventory transactions
+/**
+ * Fetches the entire inventory movement history.
+ * Supports filtering by product, transaction type, and date range.
+ */
 export const getAllTransactions = async (req, res) => {
   try {
     const { productId, type, startDate, endDate, limit = 100 } = req.query;
 
-    const where = {
+    const transactionFilters = {
       ...(productId && { productId }),
       ...(type && { type }),
       ...(startDate &&
@@ -17,8 +20,8 @@ export const getAllTransactions = async (req, res) => {
         }),
     };
 
-    const transactions = await prisma.inventoryTransaction.findMany({
-      where,
+    const movementLogs = await prisma.inventoryTransaction.findMany({
+      where: transactionFilters,
       include: {
         product: {
           select: {
@@ -33,84 +36,82 @@ export const getAllTransactions = async (req, res) => {
       take: parseInt(limit),
     });
 
-    res.json({ success: true, data: transactions });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: movementLogs });
+  } catch (err) {
+    console.error("Ledger access error:", err.message);
+    res.status(500).json({ success: false, message: "System could not load transaction history." });
   }
 };
 
-// Get transaction by ID
+// Retrieve a specific transaction record by its unique ID
 export const getTransactionById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const transaction = await prisma.inventoryTransaction.findUnique({
+    const singleTransaction = await prisma.inventoryTransaction.findUnique({
       where: { id },
       include: {
         product: true,
       },
     });
 
-    if (!transaction) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Transaction not found" });
+    if (!singleTransaction) {
+      return res.status(404).json({ success: false, message: "Movement record not found in system storage." });
     }
 
-    res.json({ success: true, data: transaction });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: singleTransaction });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error retrieving record: " + err.message });
   }
 };
 
-// Create manual inventory transaction
+/**
+ * Manually registers an inventory transaction (e.g., restock or damage write-off).
+ */
 export const createTransaction = async (req, res) => {
   try {
     const { productId, type, quantity, reason } = req.body;
 
+    // Field validation
     if (!productId || !type || !quantity) {
       return res.status(400).json({
         success: false,
-        message: "productId, type, and quantity are required",
+        message: "Missing mandatory adjustment details: product, type, and amount are required.",
       });
     }
 
     if (!["IN", "OUT"].includes(type)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid type. Must be IN or OUT",
-      });
+      return res.status(400).json({ success: false, message: "Invalid movement type. Must be either 'IN' or 'OUT'." });
     }
 
-    const product = await prisma.product.findUnique({
+    const targetProduct = await prisma.product.findUnique({
       where: { id: productId },
     });
-    if (!product || product.isDeleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
+    
+    if (!targetProduct || targetProduct.isDeleted) {
+      return res.status(404).json({ success: false, message: "The specified product is no longer active." });
     }
 
-    // Check if OUT transaction would result in negative stock
-    if (type === "OUT" && product.stockLevel < parseInt(quantity)) {
+    // Guard against negative stock levels
+    if (type === "OUT" && targetProduct.stockLevel < parseInt(quantity)) {
       return res.status(400).json({
         success: false,
-        message: `Insufficient stock. Available: ${product.stockLevel}`,
+        message: `Stock level too low. Currently ${targetProduct.stockLevel} units available.`,
       });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Create transaction record
-      const transaction = await tx.inventoryTransaction.create({
+    const adjustmentResult = await prisma.$transaction(async (tx) => {
+      // 1. Create the audit record
+      const auditLog = await tx.inventoryTransaction.create({
         data: {
           productId,
           type,
           quantity: parseInt(quantity),
-          reason: reason || `Manual ${type} adjustment`,
+          reason: reason || `Manual store ${type.toLowerCase()}put adjustment`,
         },
       });
 
-      // Update product stock
+      // 2. Synchronize the product stock level
       await tx.product.update({
         where: { id: productId },
         data: {
@@ -121,33 +122,34 @@ export const createTransaction = async (req, res) => {
         },
       });
 
-      return transaction;
+      return auditLog;
     });
 
-    res.status(201).json({ success: true, data: result });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(201).json({ success: true, data: adjustmentResult });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Manual adjustment failed: " + err.message });
   }
 };
 
-// Get inventory summary
+/**
+ * Compiles a high-level overview of current warehouse status.
+ */
 export const getInventorySummary = async (req, res) => {
   try {
-    const totalProducts = await prisma.product.count({
+    const activeProductsCount = await prisma.product.count({
       where: { isDeleted: false, status: "ACTIVE" },
     });
 
-    const lowStockProducts = await prisma.product.count({
-      where: {
-        isDeleted: false,
-        status: "ACTIVE",
-        stockLevel: {
-          lte: prisma.raw("low_stock_threshold"),
-        },
-      },
-    });
+    const lowStockAlerts = await prisma.$queryRaw`
+      SELECT COUNT(*)::int as count 
+      FROM "Product" 
+      WHERE "isDeleted" = false 
+        AND status = 'ACTIVE' 
+        AND "stockLevel" <= "lowStockThreshold"
+    `;
+    const lowStockAlertsCount = lowStockAlerts[0]?.count || 0;
 
-    const outOfStockProducts = await prisma.product.count({
+    const outOfStockCount = await prisma.product.count({
       where: {
         isDeleted: false,
         status: "ACTIVE",
@@ -155,14 +157,14 @@ export const getInventorySummary = async (req, res) => {
       },
     });
 
-    const totalStockValue = await prisma.product.aggregate({
+    const aggregateStockValue = await prisma.product.aggregate({
       where: { isDeleted: false, status: "ACTIVE" },
       _sum: {
         stockLevel: true,
       },
     });
 
-    const recentTransactions = await prisma.inventoryTransaction.findMany({
+    const latestLogs = await prisma.inventoryTransaction.findMany({
       take: 10,
       orderBy: { createdAt: "desc" },
       include: {
@@ -175,19 +177,21 @@ export const getInventorySummary = async (req, res) => {
     res.json({
       success: true,
       data: {
-        totalProducts,
-        lowStockProducts,
-        outOfStockProducts,
-        totalStockUnits: totalStockValue._sum.stockLevel || 0,
-        recentTransactions,
+        totalProducts: activeProductsCount,
+        lowStockProducts: lowStockAlertsCount,
+        outOfStockProducts: outOfStockCount,
+        totalStockUnits: aggregateStockValue._sum.stockLevel || 0,
+        recentTransactions: latestLogs,
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to generate warehouse summary." });
   }
 };
 
-// Get stock movement report
+/**
+ * Generates a detailed stock movement report for a specified date range.
+ */
 export const getStockMovementReport = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -195,11 +199,11 @@ export const getStockMovementReport = async (req, res) => {
     if (!startDate || !endDate) {
       return res.status(400).json({
         success: false,
-        message: "startDate and endDate are required",
+        message: "Please specify both start and end dates for the movement report.",
       });
     }
 
-    const transactions = await prisma.inventoryTransaction.findMany({
+    const reportEntries = await prisma.inventoryTransaction.findMany({
       where: {
         createdAt: {
           gte: new Date(startDate),
@@ -219,44 +223,45 @@ export const getStockMovementReport = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // Group by product
-    const productMovements = transactions.reduce((acc, trans) => {
-      const productId = trans.productId;
-      if (!acc[productId]) {
-        acc[productId] = {
-          product: trans.product,
-          totalIn: 0,
-          totalOut: 0,
-          transactions: [],
+    // Compile movements by product for easier UI rendering
+    const categorizedMovements = reportEntries.reduce((acc, log) => {
+      const pid = log.productId;
+      if (!acc[pid]) {
+        acc[pid] = {
+          product: log.product,
+          inboundCount: 0,
+          outboundCount: 0,
+          details: [],
         };
       }
 
-      if (trans.type === "IN") {
-        acc[productId].totalIn += trans.quantity;
+      if (log.type === "IN") {
+        acc[pid].inboundCount += log.quantity;
       } else {
-        acc[productId].totalOut += trans.quantity;
+        acc[pid].outboundCount += log.quantity;
       }
 
-      acc[productId].transactions.push(trans);
+      acc[pid].details.push(log);
       return acc;
     }, {});
 
     res.json({
       success: true,
       data: {
-        summary: {
-          totalTransactions: transactions.length,
-          totalIn: transactions
-            .filter((t) => t.type === "IN")
-            .reduce((sum, t) => sum + t.quantity, 0),
-          totalOut: transactions
-            .filter((t) => t.type === "OUT")
-            .reduce((sum, t) => sum + t.quantity, 0),
+        meta: {
+          totalActions: reportEntries.length,
+          totalIn: reportEntries
+            .filter((l) => l.type === "IN")
+            .reduce((s, l) => s + l.quantity, 0),
+          totalOut: reportEntries
+            .filter((l) => l.type === "OUT")
+            .reduce((s, l) => s + l.quantity, 0),
         },
-        productMovements: Object.values(productMovements),
+        productLevelReports: Object.values(categorizedMovements),
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Report generation error: " + err.message });
   }
 };
+

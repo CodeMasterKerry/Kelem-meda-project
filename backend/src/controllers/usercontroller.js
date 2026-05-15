@@ -1,12 +1,15 @@
 import bcrypt from "bcrypt";
 import { prisma } from "../config/db.js";
 
-// Get all users
+/**
+ * Returns all staff accounts in the system.
+ * Supports filtering by role (MANAGER / SALES_OFFICER) and name search.
+ */
 export const getAllUsers = async (req, res) => {
   try {
     const { role, search } = req.query;
 
-    const where = {
+    const staffFilters = {
       ...(role && { role }),
       ...(search && {
         OR: [
@@ -16,8 +19,8 @@ export const getAllUsers = async (req, res) => {
       }),
     };
 
-    const users = await prisma.user.findMany({
-      where,
+    const staffList = await prisma.user.findMany({
+      where: staffFilters,
       select: {
         id: true,
         username: true,
@@ -36,18 +39,18 @@ export const getAllUsers = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ success: true, data: users });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: staffList });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Could not retrieve staff list." });
   }
 };
 
-// Get user by ID
+// Fetches a single staff member's profile along with their activity counts
 export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await prisma.user.findUnique({
+    const staffProfile = await prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -66,32 +69,31 @@ export const getUserById = async (req, res) => {
       },
     });
 
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (!staffProfile) {
+      return res.status(404).json({ success: false, message: "Staff account not found." });
     }
 
-    res.json({ success: true, data: user });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: staffProfile });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error fetching staff record." });
   }
 };
 
-// Update user
+// Allows admin to update a staff member's name, username, or role
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, username, role } = req.body;
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (username) updateData.username = username;
-    if (role) updateData.role = role;
+    // Build the update object from only the fields provided
+    const updatedFields = {};
+    if (name) updatedFields.name = name;
+    if (username) updatedFields.username = username;
+    if (role) updatedFields.role = role;
 
-    const user = await prisma.user.update({
+    const updatedProfile = await prisma.user.update({
       where: { id },
-      data: updateData,
+      data: updatedFields,
       select: {
         id: true,
         username: true,
@@ -102,23 +104,22 @@ export const updateUser = async (req, res) => {
       },
     });
 
-    res.json({ success: true, data: user });
-  } catch (error) {
-    if (error.code === "P2002") {
-      return res
-        .status(409)
-        .json({ success: false, message: "Username already taken" });
+    res.json({ success: true, data: updatedProfile });
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ success: false, message: "That username is already taken by another account." });
     }
-    if (error.code === "P2025") {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (err.code === "P2025") {
+      return res.status(404).json({ success: false, message: "Staff account not found for update." });
     }
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: "Profile update failed." });
   }
 };
 
-// Change password
+/**
+ * Lets a staff member change their own login password.
+ * Requires verification of the old password before applying the change.
+ */
 export const changePassword = async (req, res) => {
   try {
     const { id } = req.params;
@@ -127,110 +128,106 @@ export const changePassword = async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: "Current password and new password are required",
+        message: "Both the current password and the new one must be provided.",
       });
     }
 
-    // Get user with password
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    // Load account with password hash for verification
+    const staffAccount = await prisma.user.findUnique({ where: { id } });
+    if (!staffAccount) {
+      return res.status(404).json({ success: false, message: "Account not found." });
     }
 
-    // Verify current password
-    const isValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isValid) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Current password is incorrect" });
+    // Reject if the old password doesn't match
+    const isPasswordCorrect = await bcrypt.compare(currentPassword, staffAccount.password);
+    if (!isPasswordCorrect) {
+      return res.status(401).json({ success: false, message: "The current password you entered is incorrect." });
     }
 
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const freshHash = await bcrypt.hash(newPassword, 12);
 
-    // Update password
     await prisma.user.update({
       where: { id },
-      data: { password: hashedPassword },
+      data: { password: freshHash },
     });
 
-    res.json({ success: true, message: "Password changed successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, message: "Password updated successfully. Please log in again." });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Password change failed: " + err.message });
   }
 };
 
-// Reset password (Admin only)
+/**
+ * Admin-only: Force-reset a staff member's password without knowing the old one.
+ * Used when a user is locked out.
+ */
 export const resetPassword = async (req, res) => {
   try {
     const { id } = req.params;
     const { newPassword } = req.body;
 
     if (!newPassword) {
-      return res
-        .status(400)
-        .json({ success: false, message: "New password is required" });
+      return res.status(400).json({ success: false, message: "A new password must be specified for the reset." });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const resetHash = await bcrypt.hash(newPassword, 12);
 
     await prisma.user.update({
       where: { id },
-      data: { password: hashedPassword },
+      data: { password: resetHash },
     });
 
-    res.json({ success: true, message: "Password reset successfully" });
-  } catch (error) {
-    if (error.code === "P2025") {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    res.json({ success: true, message: "Staff password has been reset by admin." });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ success: false, message: "Staff account not found." });
     }
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: "Password reset failed." });
   }
 };
 
-// Delete user
+/**
+ * Removes a user account permanently.
+ * Blocked if the user has any associated sales records to protect data integrity.
+ */
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if user has sales
-    const salesCount = await prisma.sale.count({
+    // Check for any linked sales — deletion would break referential integrity
+    const linkedSalesCount = await prisma.sale.count({
       where: {
         OR: [{ preparedById: id }, { approvedById: id }],
       },
     });
 
-    if (salesCount > 0) {
+    if (linkedSalesCount > 0) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete user with ${salesCount} associated sales. Consider deactivating instead.`,
+        message: `This staff member has ${linkedSalesCount} sales on record. Deactivate the account instead of deleting.`,
       });
     }
 
     await prisma.user.delete({ where: { id } });
 
-    res.json({ success: true, message: "User deleted successfully" });
-  } catch (error) {
-    if (error.code === "P2025") {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    res.json({ success: true, message: "Staff account has been permanently removed." });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ success: false, message: "Account not found." });
     }
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: "Account deletion failed." });
   }
 };
 
-// Get user statistics
+/**
+ * Compiles a performance summary for a specific user — sales processed and (for managers) approvals granted.
+ */
 export const getUserStatistics = async (req, res) => {
   try {
     const { id } = req.params;
     const { startDate, endDate } = req.query;
 
-    const dateFilter =
+    const periodBoundary =
       startDate && endDate
         ? {
             createdAt: {
@@ -240,22 +237,20 @@ export const getUserStatistics = async (req, res) => {
           }
         : {};
 
-    const user = await prisma.user.findUnique({
+    const staffInfo = await prisma.user.findUnique({
       where: { id },
       select: { name: true, username: true, role: true },
     });
 
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
+    if (!staffInfo) {
+      return res.status(404).json({ success: false, message: "Staff account not found." });
     }
 
-    // Sales prepared by user
-    const preparedSales = await prisma.sale.findMany({
+    // Retrieve all sales this officer has been involved in
+    const officerSalesLog = await prisma.sale.findMany({
       where: {
         preparedById: id,
-        ...dateFilter,
+        ...periodBoundary,
       },
       select: {
         totalAmount: true,
@@ -263,15 +258,15 @@ export const getUserStatistics = async (req, res) => {
       },
     });
 
-    const totalSalesPrepared = preparedSales.length;
-    const totalRevenuePrepared = preparedSales
+    const totalPrepared = officerSalesLog.length;
+    const revenueGenerated = officerSalesLog
       .filter((s) => s.status === "APPROVED")
-      .reduce((sum, s) => sum + s.totalAmount, 0);
+      .reduce((acc, s) => acc + s.totalAmount, 0);
 
-    // If manager, get approval statistics
-    let approvalStats = null;
-    if (user.role === "MANAGER") {
-      const approvals = await prisma.approval.findMany({
+    // Only pull manager-specific data if this is a manager account
+    let managerApprovalData = null;
+    if (staffInfo.role === "MANAGER") {
+      const managerApprovalHistory = await prisma.approval.findMany({
         where: {
           managerId: id,
           ...(startDate &&
@@ -287,42 +282,39 @@ export const getUserStatistics = async (req, res) => {
         },
       });
 
-      approvalStats = {
-        totalApprovals: approvals.length,
-        approved: approvals.filter((a) => a.status === "APPROVED").length,
-        rejected: approvals.filter((a) => a.status === "REJECTED").length,
-        totalValueApproved: approvals
+      managerApprovalData = {
+        totalDecisions: managerApprovalHistory.length,
+        approvedCount: managerApprovalHistory.filter((a) => a.status === "APPROVED").length,
+        rejectedCount: managerApprovalHistory.filter((a) => a.status === "REJECTED").length,
+        totalValueSigned: managerApprovalHistory
           .filter((a) => a.status === "APPROVED")
-          .reduce((sum, a) => sum + a.sale.totalAmount, 0),
+          .reduce((acc, a) => acc + a.sale.totalAmount, 0),
       };
     }
 
     res.json({
       success: true,
       data: {
-        user,
-        salesStatistics: {
-          totalSalesPrepared,
-          totalRevenuePrepared,
-          approvedSales: preparedSales.filter((s) => s.status === "APPROVED")
-            .length,
-          pendingSales: preparedSales.filter((s) => s.status === "PENDING")
-            .length,
-          rejectedSales: preparedSales.filter((s) => s.status === "REJECTED")
-            .length,
+        staffProfile: staffInfo,
+        salesBreakdown: {
+          totalPrepared,
+          revenueGenerated,
+          approvedCount: officerSalesLog.filter((s) => s.status === "APPROVED").length,
+          pendingCount: officerSalesLog.filter((s) => s.status === "PENDING").length,
+          rejectedCount: officerSalesLog.filter((s) => s.status === "REJECTED").length,
         },
-        ...(approvalStats && { approvalStatistics: approvalStats }),
+        ...(managerApprovalData && { approvalActivity: managerApprovalData }),
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Could not compile performance data." });
   }
 };
 
-// Get sales officers
+// Returns a list of all Sales Officers — used for dropdown selections and reports
 export const getSalesOfficers = async (req, res) => {
   try {
-    const officers = await prisma.user.findMany({
+    const officerRoster = await prisma.user.findMany({
       where: { role: "SALES_OFFICER" },
       select: {
         id: true,
@@ -336,16 +328,16 @@ export const getSalesOfficers = async (req, res) => {
       orderBy: { name: "asc" },
     });
 
-    res.json({ success: true, data: officers });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: officerRoster });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to load sales officers." });
   }
 };
 
-// Get managers
+// Returns all managers — used in the approval assignment page
 export const getManagers = async (req, res) => {
   try {
-    const managers = await prisma.user.findMany({
+    const managerRoster = await prisma.user.findMany({
       where: { role: "MANAGER" },
       select: {
         id: true,
@@ -359,8 +351,9 @@ export const getManagers = async (req, res) => {
       orderBy: { name: "asc" },
     });
 
-    res.json({ success: true, data: managers });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: managerRoster });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to load manager list." });
   }
 };
+

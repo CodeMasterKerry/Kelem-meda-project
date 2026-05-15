@@ -2,21 +2,25 @@ import { prisma } from "../config/db.js";
 import PDFDocument from "pdfkit-table";
 import XLSX from "xlsx";
 
-// Get daily sales report
+/**
+ * Returns an approved-sales summary for a single day.
+ * Defaults to today if no date is specified.
+ */
 export const getDailyReport = async (req, res) => {
   try {
     const { date } = req.query;
-    const targetDate = date ? new Date(date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const reportDate = date ? new Date(date) : new Date();
+    reportDate.setHours(0, 0, 0, 0);
 
-    const nextDay = new Date(targetDate);
-    nextDay.setDate(nextDay.getDate() + 1);
+    // Build the next-day boundary for the WHERE clause
+    const dayAfter = new Date(reportDate);
+    dayAfter.setDate(dayAfter.getDate() + 1);
 
-    const sales = await prisma.sale.findMany({
+    const approvedSalesForDay = await prisma.sale.findMany({
       where: {
         createdAt: {
-          gte: targetDate,
-          lt: nextDay,
+          gte: reportDate,
+          lt: dayAfter,
         },
         status: "APPROVED",
       },
@@ -30,40 +34,43 @@ export const getDailyReport = async (req, res) => {
       },
     });
 
-    const summary = {
-      date: targetDate.toISOString().split("T")[0],
-      totalSales: sales.length,
-      totalRevenue: sales.reduce((sum, s) => sum + s.totalAmount, 0),
-      totalVAT: sales.reduce((sum, s) => sum + s.vat, 0),
-      totalDiscount: sales.reduce((sum, s) => sum + s.discount, 0),
-      subtotal: sales.reduce((sum, s) => sum + s.subtotal, 0),
-      paymentMethods: {
-        CASH: sales.filter((s) => s.paymentMethod === "CASH").length,
-        TRANSFER: sales.filter((s) => s.paymentMethod === "TRANSFER").length,
-        MOBILE: sales.filter((s) => s.paymentMethod === "MOBILE").length,
+    const dailySummary = {
+      reportDate: reportDate.toISOString().split("T")[0],
+      totalTransactions: approvedSalesForDay.length,
+      totalRevenue: approvedSalesForDay.reduce((acc, s) => acc + s.totalAmount, 0),
+      totalVAT: approvedSalesForDay.reduce((acc, s) => acc + s.vat, 0),
+      totalDiscount: approvedSalesForDay.reduce((acc, s) => acc + s.discount, 0),
+      grossSubtotal: approvedSalesForDay.reduce((acc, s) => acc + s.subtotal, 0),
+      paymentBreakdown: {
+        CASH: approvedSalesForDay.filter((s) => s.paymentMethod === "CASH").length,
+        TRANSFER: approvedSalesForDay.filter((s) => s.paymentMethod === "TRANSFER").length,
+        MOBILE: approvedSalesForDay.filter((s) => s.paymentMethod === "MOBILE").length,
       },
     };
 
-    res.json({ success: true, data: { summary, sales } });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: { summary: dailySummary, sales: approvedSalesForDay } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to generate daily report: " + err.message });
   }
 };
 
+/**
+ * Builds a month-level report showing performance trends and top products.
+ */
 export const getMonthlyReport = async (req, res) => {
   try {
     const { year, month } = req.query;
-    const targetYear = year ? parseInt(year) : new Date().getFullYear();
-    const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+    const reportYear = year ? parseInt(year) : new Date().getFullYear();
+    const reportMonth = month ? parseInt(month) - 1 : new Date().getMonth();
 
-    const firstDay = new Date(targetYear, targetMonth, 1);
-    const lastDay = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+    const monthStart = new Date(reportYear, reportMonth, 1);
+    const monthEnd = new Date(reportYear, reportMonth + 1, 0, 23, 59, 59);
 
-    const sales = await prisma.sale.findMany({
+    const monthlySales = await prisma.sale.findMany({
       where: {
         createdAt: {
-          gte: firstDay,
-          lte: lastDay,
+          gte: monthStart,
+          lte: monthEnd,
         },
         status: "APPROVED",
       },
@@ -79,91 +86,96 @@ export const getMonthlyReport = async (req, res) => {
       },
     });
 
-    // Group sales by day
-    const dailySales = sales.reduce((acc, sale) => {
-      const day = sale.createdAt.getDate();
-      if (!acc[day]) {
-        acc[day] = { count: 0, revenue: 0 };
+    // Break down revenue by calendar day for trending charts
+    const dayByDayBreakdown = monthlySales.reduce((acc, sale) => {
+      const dayNum = sale.createdAt.getDate();
+      if (!acc[dayNum]) {
+        acc[dayNum] = { count: 0, revenue: 0 };
       }
-      acc[day].count++;
-      acc[day].revenue += sale.totalAmount;
+      acc[dayNum].count++;
+      acc[dayNum].revenue += sale.totalAmount;
       return acc;
     }, {});
 
-    // Top selling products
-    const productSales = {};
-    sales.forEach((sale) => {
+    // Find out which products drove the most revenue this month
+    const revenuePerProduct = {};
+    monthlySales.forEach((sale) => {
       sale.items.forEach((item) => {
-        const productId = item.productId;
-        if (!productSales[productId]) {
-          productSales[productId] = {
+        const pid = item.productId;
+        if (!revenuePerProduct[pid]) {
+          revenuePerProduct[pid] = {
             name: item.product.name,
             quantity: 0,
             revenue: 0,
           };
         }
-        productSales[productId].quantity += item.quantity;
-        productSales[productId].revenue += item.total;
+        revenuePerProduct[pid].quantity += item.quantity;
+        revenuePerProduct[pid].revenue += item.total;
       });
     });
 
-    const topProducts = Object.values(productSales)
+    const topPerformers = Object.values(revenuePerProduct)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
 
-    const summary = {
-      period: `${firstDay.toLocaleDateString()} - ${lastDay.toLocaleDateString()}`,
-      totalSales: sales.length,
-      totalRevenue: sales.reduce((sum, s) => sum + s.totalAmount, 0),
-      totalVAT: sales.reduce((sum, s) => sum + s.vat, 0),
-      totalDiscount: sales.reduce((sum, s) => sum + s.discount, 0),
-      averageSaleValue:
-        sales.length > 0
-          ? sales.reduce((sum, s) => sum + s.totalAmount, 0) / sales.length
-          : 0,
-      dailySales,
-      topProducts,
+    const monthLabel = `${monthStart.toLocaleDateString()} - ${monthEnd.toLocaleDateString()}`;
+    const totalRev = monthlySales.reduce((acc, s) => acc + s.totalAmount, 0);
+
+    const monthlySummary = {
+      period: monthLabel,
+      totalSales: monthlySales.length,
+      totalRevenue: totalRev,
+      totalVAT: monthlySales.reduce((acc, s) => acc + s.vat, 0),
+      totalDiscount: monthlySales.reduce((acc, s) => acc + s.discount, 0),
+      averageSaleValue: monthlySales.length > 0 ? totalRev / monthlySales.length : 0,
+      dailyBreakdown: dayByDayBreakdown,
+      topProducts: topPerformers,
     };
 
-    res.json({ success: true, data: { summary, sales } });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: { summary: monthlySummary, sales: monthlySales } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Monthly report failed: " + err.message });
   }
 };
 
+/**
+ * Exports either a Sales or Stock report as an Excel file.
+ * Period can be 'daily' or 'monthly'. Type is 'sales' or 'stock'.
+ */
 export const exportToExcel = async (req, res) => {
   try {
-    const { type, period, date, year, month } = req.query; // 'sales' or 'stock'
-    let data = [];
-    let filename = "";
+    const { type, period, date, year, month } = req.query;
+    let reportRows = [];
+    let outputFilename = "";
 
     if (type === "sales") {
-      let whereClause = {}; // We export all or just approved? Usually approved
-      let suffix = "";
+      let dateRangeFilter = {};
+      let fileSuffix = "";
 
       if (period === "daily") {
-        const targetDate = date ? new Date(date) : new Date();
-        targetDate.setHours(0, 0, 0, 0);
-        const nextDay = new Date(targetDate);
+        const exportDate = date ? new Date(date) : new Date();
+        exportDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(exportDate);
         nextDay.setDate(nextDay.getDate() + 1);
-        whereClause.createdAt = { gte: targetDate, lt: nextDay };
-        suffix = `_${targetDate.toISOString().split("T")[0]}`;
+        dateRangeFilter.createdAt = { gte: exportDate, lt: nextDay };
+        fileSuffix = `_${exportDate.toISOString().split("T")[0]}`;
       } else if (period === "monthly") {
-        const targetYear = year ? parseInt(year) : new Date().getFullYear();
-        const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
-        const firstDay = new Date(targetYear, targetMonth, 1);
-        const lastDay = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
-        whereClause.createdAt = { gte: firstDay, lte: lastDay };
-        suffix = `_${targetYear}_${targetMonth + 1}`;
+        const expYear = year ? parseInt(year) : new Date().getFullYear();
+        const expMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+        const firstDay = new Date(expYear, expMonth, 1);
+        const lastDay = new Date(expYear, expMonth + 1, 0, 23, 59, 59);
+        dateRangeFilter.createdAt = { gte: firstDay, lte: lastDay };
+        fileSuffix = `_${expYear}_${expMonth + 1}`;
       }
 
-      const sales = await prisma.sale.findMany({
-        where: whereClause,
+      const salesData = await prisma.sale.findMany({
+        where: dateRangeFilter,
         include: { preparedBy: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
       });
 
-      data = sales.map((s) => ({
+      // Map to clean rows suitable for the spreadsheet
+      reportRows = salesData.map((s) => ({
         Invoice: s.invoiceNumber,
         Date: s.createdAt.toLocaleDateString(),
         Time: s.createdAt.toLocaleTimeString(),
@@ -175,156 +187,155 @@ export const exportToExcel = async (req, res) => {
         Total: s.totalAmount,
         "Prepared By": s.preparedBy?.name || "N/A",
       }));
-      filename = `Sales_Report${suffix}.xlsx`;
+      outputFilename = `Sales_Report${fileSuffix}.xlsx`;
     } else {
-      const products = await prisma.product.findMany({
+      // Stock export — all non-deleted products
+      const stockData = await prisma.product.findMany({
         where: { isDeleted: false },
         include: { category: true },
       });
-      data = products.map((p) => ({
+      reportRows = stockData.map((p) => ({
         SKU: p.sku,
         Name: p.name,
         Category: p.category?.name || "N/A",
-        Stock: p.stockLevel,
-        Price: p.sellingPrice,
+        "Stock Level": p.stockLevel,
+        "Selling Price": p.sellingPrice,
         Status: p.status,
       }));
-      filename = "Stock_Report.xlsx";
+      outputFilename = "Stock_Report.xlsx";
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const sheet = XLSX.utils.json_to_sheet(reportRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Report");
+    const fileBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    );
-    res.send(buffer);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.setHeader("Content-Disposition", `attachment; filename=${outputFilename}`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(fileBuffer);
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Excel export failed: " + err.message });
   }
 };
 
+/**
+ * Generates and streams a PDF report directly to the browser.
+ * Includes company header, data table, and a dual-signature block.
+ */
 export const exportToPDF = async (req, res) => {
   try {
     const { type, period, date, year, month } = req.query;
-    const doc = new PDFDocument();
+    const pdfDoc = new PDFDocument();
 
-    let filename = "";
-    let title = "";
+    let outputFilename = "";
+    let reportTitle = "";
     let whereClause = {};
 
     if (type === "sales") {
       let suffix = "";
       if (period === "daily") {
-        const targetDate = date ? new Date(date) : new Date();
-        targetDate.setHours(0, 0, 0, 0);
-        const nextDay = new Date(targetDate);
+        const reportDate = date ? new Date(date) : new Date();
+        reportDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(reportDate);
         nextDay.setDate(nextDay.getDate() + 1);
-        whereClause.createdAt = { gte: targetDate, lt: nextDay };
-        suffix = `_${targetDate.toISOString().split("T")[0]}`;
-        title = `Daily Sales Report - ${targetDate.toLocaleDateString()}`;
+        whereClause.createdAt = { gte: reportDate, lt: nextDay };
+        suffix = `_${reportDate.toISOString().split("T")[0]}`;
+        reportTitle = `Daily Sales Report - ${reportDate.toLocaleDateString()}`;
       } else if (period === "monthly") {
-        const targetYear = year ? parseInt(year) : new Date().getFullYear();
-        const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
-        const firstDay = new Date(targetYear, targetMonth, 1);
-        const lastDay = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+        const rYear = year ? parseInt(year) : new Date().getFullYear();
+        const rMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+        const firstDay = new Date(rYear, rMonth, 1);
+        const lastDay = new Date(rYear, rMonth + 1, 0, 23, 59, 59);
         whereClause.createdAt = { gte: firstDay, lte: lastDay };
-        suffix = `_${targetYear}_${targetMonth + 1}`;
-        title = `Monthly Sales Report - ${targetMonth + 1}/${targetYear}`;
+        suffix = `_${rYear}_${rMonth + 1}`;
+        reportTitle = `Monthly Sales Report - ${rMonth + 1}/${rYear}`;
       } else {
-        title = "Complete Sales Report";
+        reportTitle = "Complete Sales Report";
       }
-      filename = `Sales_Report${suffix}.pdf`;
+      outputFilename = `Sales_Report${suffix}.pdf`;
     } else {
-      filename = "Stock_Report.pdf";
-      title = "Current Stock Report";
+      outputFilename = "Stock_Report.pdf";
+      reportTitle = "Current Stock Inventory Report";
     }
 
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+    res.setHeader("Content-Disposition", `attachment; filename=${outputFilename}`);
     res.setHeader("Content-Type", "application/pdf");
-    doc.pipe(res);
+    pdfDoc.pipe(res);
 
-    doc.fontSize(20).text("Qelem Meda Technologies", { align: "center" });
-    doc.fontSize(16).text(title, { align: "center" });
-    doc.moveDown();
+    // Company header
+    pdfDoc.fontSize(20).text("Qelem Meda Technologies", { align: "center" });
+    pdfDoc.fontSize(16).text(reportTitle, { align: "center" });
+    pdfDoc.moveDown();
 
     if (type === "sales") {
-      const sales = await prisma.sale.findMany({
+      const salesRecords = await prisma.sale.findMany({
         where: whereClause,
         include: { preparedBy: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
       });
-      if (sales.length === 0) {
-        doc
-          .fontSize(12)
-          .text("No sales found for this period.", { align: "center" });
+
+      if (salesRecords.length === 0) {
+        pdfDoc.fontSize(12).text("No approved sales were found for this period.", { align: "center" });
       } else {
-        const table = {
-          title: "Sales Data",
-          headers: ["Invoice", "Date", "Status", "Amount (Birr)"],
-          rows: sales.map((s) => [
+        const tableConfig = {
+          title: "Sales Transactions",
+          headers: ["Invoice #", "Date", "Status", "Total (Birr)"],
+          rows: salesRecords.map((s) => [
             s.invoiceNumber,
             s.createdAt.toLocaleDateString(),
             s.status,
             s.totalAmount.toString(),
           ]),
         };
-        await doc.table(table, {
-          prepareHeader: () => doc.font("Helvetica-Bold").fontSize(10),
-          prepareRow: () => doc.font("Helvetica").fontSize(10),
+        await pdfDoc.table(tableConfig, {
+          prepareHeader: () => pdfDoc.font("Helvetica-Bold").fontSize(10),
+          prepareRow: () => pdfDoc.font("Helvetica").fontSize(10),
         });
 
-        // Add signature block at the bottom
-        const user = await prisma.user.findUnique({
+        // Dual-signature block for accountability
+        const signingUser = await prisma.user.findUnique({
           where: { id: req.user.id },
         });
-        doc.moveDown(4);
+        pdfDoc.moveDown(4);
 
-        const currentY = doc.y;
-        const preparers = [...new Set(sales.map(s => s.preparedBy?.name).filter(Boolean))].join(", ");
-        doc.font("Helvetica-Bold").fontSize(10);
-        doc.text(
-          `Prepared By: ${preparers || "_______________________"}`,
-          50,
-          currentY,
-        );
-        doc.text(
-          `Approved By: ${user?.name || "_______________________"}`,
-          350,
-          currentY,
-        );
+        const sigLineY = pdfDoc.y;
+        const preparerNames = [
+          ...new Set(salesRecords.map((s) => s.preparedBy?.name).filter(Boolean)),
+        ].join(", ");
+
+        pdfDoc.font("Helvetica-Bold").fontSize(10);
+        pdfDoc.text(`Prepared By: ${preparerNames || "_______________________"}`, 50, sigLineY);
+        pdfDoc.text(`Approved By: ${signingUser?.name || "_______________________"}`, 350, sigLineY);
       }
     } else {
-      const products = await prisma.product.findMany({
+      const inventoryList = await prisma.product.findMany({
         where: { isDeleted: false },
         orderBy: { name: "asc" },
       });
-      if (products.length === 0) {
-        doc.fontSize(12).text("No products found.", { align: "center" });
+
+      if (inventoryList.length === 0) {
+        pdfDoc.fontSize(12).text("No products found in inventory.", { align: "center" });
       } else {
-        const table = {
-          title: "Inventory Data",
-          headers: ["SKU", "Product Name", "Stock Level", "Price (Birr)"],
-          rows: products.map((p) => [
+        const stockTable = {
+          title: "Current Inventory Levels",
+          headers: ["SKU", "Product Name", "Stock Qty", "Selling Price (Birr)"],
+          rows: inventoryList.map((p) => [
             p.sku,
             p.name,
             p.stockLevel.toString(),
             p.sellingPrice.toString(),
           ]),
         };
-        await doc.table(table, {
-          prepareHeader: () => doc.font("Helvetica-Bold").fontSize(10),
-          prepareRow: () => doc.font("Helvetica").fontSize(10),
+        await pdfDoc.table(stockTable, {
+          prepareHeader: () => pdfDoc.font("Helvetica-Bold").fontSize(10),
+          prepareRow: () => pdfDoc.font("Helvetica").fontSize(10),
         });
       }
     }
 
-    doc.end();
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    pdfDoc.end();
+  } catch (err) {
+    res.status(500).json({ success: false, message: "PDF generation failed: " + err.message });
   }
 };
+

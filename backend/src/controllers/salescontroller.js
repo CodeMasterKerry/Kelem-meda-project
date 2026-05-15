@@ -8,137 +8,143 @@ import {
   checkStockAvailability,
 } from "../utils/utils.js";
 
+/**
+ * Handles the creation of a new sale record.
+ * Validates inventory availability, applies business pricing logic, 
+ * and determines if manager authorization is required based on invoice total.
+ */
 export const createSale = async (req, res) => {
   const { items, paymentMethod, discountPercent = 0, preparedById } = req.body;
 
   try {
-    // Validate items
-    const validation = validateSaleItems(items);
-    if (!validation.valid) {
+    // Validate that the shopping basket contains valid, actionable items
+    const basketValidation = validateSaleItems(items);
+    if (!basketValidation.valid) {
       return res.status(400).json({
         success: false,
-        message: "Invalid sale items",
-        errors: validation.errors,
+        message: "The provided cart items are invalid.",
+        details: basketValidation.errors,
       });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const saleItemsData = [];
+    const processedSale = await prisma.$transaction(async (tx) => {
+      const lineItemsToProcess = [];
 
-      // 1. Prepare data and check stock availability for all items
-      for (const item of items) {
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
+      // 1. Validate existence and inventory depth for every item
+      for (const entry of items) {
+        const productData = await tx.product.findUnique({
+          where: { id: entry.productId },
         });
 
-        if (!product || product.isDeleted || product.status !== "ACTIVE") {
-          throw new Error(`Product ${item.productId} not found or inactive`);
+        if (!productData || productData.isDeleted || productData.status !== "ACTIVE") {
+          throw new Error(`Product ${entry.productId} is currently unavailable for selection.`);
         }
 
-        // Check stock availability
-        const stockCheck = checkStockAvailability(product, item.quantity);
-        if (!stockCheck.sufficient) {
+        // Verify that current shelf levels meet the demand
+        const availabilityCheck = checkStockAvailability(productData, entry.quantity);
+        if (!availabilityCheck.sufficient) {
           throw new Error(
-            `Insufficient stock for product: ${product.name}. Available: ${stockCheck.available}, Requested: ${stockCheck.requested}`,
+            `Insufficient stock for ${productData.name}. Requested: ${entry.quantity}, Available: ${availabilityCheck.available}.`,
           );
         }
 
-        // Calculate item totals using utils
-        const itemTotals = calculateItemTotal(
-          item.quantity,
-          product.sellingPrice,
-          item.discountPercent || 0,
+        // Calculate pricing components for the line item
+        const itemPricing = calculateItemTotal(
+          entry.quantity,
+          productData.sellingPrice,
+          entry.discountPercent || 0,
         );
 
-        saleItemsData.push({
-          productId: product.id,
-          quantity: item.quantity,
-          unitPrice: product.sellingPrice,
-          subtotal: itemTotals.subtotal,
-          discount: itemTotals.discount,
-          vat: itemTotals.vat,
-          total: itemTotals.total,
+        lineItemsToProcess.push({
+          productId: productData.id,
+          quantity: entry.quantity,
+          unitPrice: productData.sellingPrice,
+          subtotal: itemPricing.subtotal,
+          discount: itemPricing.discount,
+          vat: itemPricing.vat,
+          total: itemPricing.total,
         });
       }
 
-      // 2. Calculate final totals to determine if approval is required
-      const saleTotals = calculateSaleTotal(saleItemsData, discountPercent);
-      const requiresApproval = saleTotals.requiresApproval;
+      // 2. Aggregate final totals and check for executive approval requirements
+      const invoiceSummary = calculateSaleTotal(lineItemsToProcess, discountPercent);
+      const isApprovalMandatory = invoiceSummary.requiresApproval;
 
-      // 3. Deduct stock ONLY if the sale does NOT require approval
-      // If it requires approval, stock will be deducted when the manager approves it.
-      if (!requiresApproval) {
-        for (const item of saleItemsData) {
+      // 3. Deduct inventory immediately if the sale is standard (auto-approved)
+      if (!isApprovalMandatory) {
+        for (const item of lineItemsToProcess) {
           await tx.product.update({
             where: { id: item.productId },
             data: { stockLevel: { decrement: item.quantity } },
           });
 
-          // Record inventory transaction
+          // Create an audit trail for the inventory reduction
           await tx.inventoryTransaction.create({
             data: {
               productId: item.productId,
               type: "OUT",
               quantity: item.quantity,
-              reason: `Sale Transaction`,
+              reason: `Retail Sale - Invoice finalized`,
             },
           });
         }
       }
 
-      // 4. Generate invoice number
-      const invoiceNumber = await generateInvoiceNumber();
+      // 4. Generate a unique reference number for the receipt
+      const invoiceReference = await generateInvoiceNumber();
 
-      // 5. Create Sale record
-      const sale = await tx.sale.create({
+      // 5. Store the finalized sale record
+      const createdSale = await tx.sale.create({
         data: {
-          invoiceNumber,
-          subtotal: saleTotals.subtotal,
-          discount: saleTotals.discount,
-          taxableAmount: saleTotals.taxableAmount,
-          vat: saleTotals.vat,
-          totalAmount: saleTotals.totalAmount,
+          invoiceNumber: invoiceReference,
+          subtotal: invoiceSummary.subtotal,
+          discount: invoiceSummary.discount,
+          taxableAmount: invoiceSummary.taxableAmount,
+          vat: invoiceSummary.vat,
+          totalAmount: invoiceSummary.totalAmount,
           paymentMethod,
-          requiresApproval: requiresApproval,
-          status: requiresApproval ? "PENDING" : "APPROVED",
+          requiresApproval: isApprovalMandatory,
+          status: isApprovalMandatory ? "PENDING" : "APPROVED",
           preparedById,
           items: {
-            create: saleItemsData,
+            create: lineItemsToProcess,
           },
         },
         include: { items: true },
       });
 
-      // 6. Record financial transaction if approved immediately
-      if (sale.status === "APPROVED") {
+      // 6. Record financial entry if transaction does not require manager review
+      if (createdSale.status === "APPROVED") {
         await tx.financialTransaction.create({
           data: {
-            saleId: sale.id,
+            saleId: createdSale.id,
             type: "INCOME",
-            amount: sale.totalAmount,
-            paymentMethod: sale.paymentMethod,
-            reference: sale.invoiceNumber,
-            description: `Payment for Sale ${sale.invoiceNumber}`,
+            amount: createdSale.totalAmount,
+            paymentMethod: createdSale.paymentMethod,
+            reference: createdSale.invoiceNumber,
+            description: `Revenue captured for Invoice ${createdSale.invoiceNumber}`,
           },
         });
       }
 
-      return sale;
+      return createdSale;
     });
 
-    res.status(201).json({ success: true, data: result });
-  } catch (error) {
-    console.error("Sale Transaction Failed:", error.message);
-    res.status(400).json({ success: false, message: error.message });
-    // Prisma $transaction automatically rolls back on error
+    res.status(201).json({ success: true, data: processedSale });
+  } catch (err) {
+    console.error("Sale process error:", err.message);
+    res.status(400).json({ success: false, message: err.message });
   }
 };
 
+/**
+ * Retrieves sales logs with flexible filtering for status and specific date ranges.
+ */
 export const getSales = async (req, res) => {
   try {
     const { status, startDate, endDate } = req.query;
 
-    const where = {
+    const filterCriteria = {
       ...(status && { status }),
       ...(startDate &&
         endDate && {
@@ -149,8 +155,8 @@ export const getSales = async (req, res) => {
         }),
     };
 
-    const sales = await prisma.sale.findMany({
-      where,
+    const salesHistory = await prisma.sale.findMany({
+      where: filterCriteria,
       include: {
         preparedBy: { select: { name: true } },
         approvedBy: { select: { name: true } },
@@ -158,16 +164,17 @@ export const getSales = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ success: true, data: sales });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: salesHistory });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Could not retrieve sales registry: " + err.message });
   }
 };
 
+// Fetch full, itemized details for a single transaction
 export const getSaleById = async (req, res) => {
   try {
     const { id } = req.params;
-    const sale = await prisma.sale.findUnique({
+    const saleRecord = await prisma.sale.findUnique({
       where: { id },
       include: {
         items: { include: { product: true } },
@@ -177,34 +184,36 @@ export const getSaleById = async (req, res) => {
       },
     });
 
-    if (!sale)
-      return res
-        .status(404)
-        .json({ success: false, message: "Sale not found" });
+    if (!saleRecord) {
+      return res.status(404).json({ success: false, message: "Invoice not found in the system archives." });
+    }
 
-    res.json({ success: true, data: sale });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: saleRecord });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error while fetching invoice data." });
   }
 };
 
+/**
+ * Allows a manager to approve or reject a pending high-value sale.
+ */
 export const approveSale = async (req, res) => {
   const { id } = req.params;
-  const { status, comment, managerId } = req.body; // status: APPROVED or REJECTED
+  const { status, comment, managerId } = req.body; 
 
   try {
-    const sale = await prisma.sale.findUnique({
+    const targetSale = await prisma.sale.findUnique({
       where: { id },
       include: { items: { include: { product: true } } },
     });
-    if (!sale)
-      return res
-        .status(404)
-        .json({ success: false, message: "Sale not found" });
 
-    const updatedSale = await prisma.$transaction(async (tx) => {
-      // 1. Update Sale status
-      const updated = await tx.sale.update({
+    if (!targetSale) {
+      return res.status(404).json({ success: false, message: "Pending sale not found." });
+    }
+
+    const updatedSaleResult = await prisma.$transaction(async (tx) => {
+      // 1. Update the sale status based on manager decision
+      const updatedSale = await tx.sale.update({
         where: { id },
         data: {
           status: status === "APPROVED" ? "APPROVED" : "REJECTED",
@@ -212,65 +221,67 @@ export const approveSale = async (req, res) => {
         },
       });
 
-      // 2. Record Approval
+      // 2. Log the formal approval/rejection record
       await tx.approval.create({
         data: {
           saleId: id,
           managerId,
           status,
-          comment,
+          comment: comment || `Manager ${status.toLowerCase()}d this transaction.`,
         },
       });
 
-      // If approved, deduct stock and record financial transaction
+      // 3. Post-approval logic: Stock deduction and Finance entry
       if (status === "APPROVED") {
-        for (const item of sale.items) {
-          // Check stock availability again at approval time
-          const product = await tx.product.findUnique({
-            where: { id: item.productId },
+        for (const lineItem of targetSale.items) {
+          // Re-verify stock levels at the moment of approval (important for busy stores)
+          const currentStock = await tx.product.findUnique({
+            where: { id: lineItem.productId },
           });
 
-          if (!product || product.stockLevel < item.quantity) {
+          if (!currentStock || currentStock.stockLevel < lineItem.quantity) {
             throw new Error(
-              `Insufficient stock for product: ${product?.name || "Unknown"} at approval time.`,
+              `Stock for ${currentStock?.name || "item"} is no longer sufficient to fulfill this sale.`,
             );
           }
 
-          // Deduct stock
+          // Execute stock deduction
           await tx.product.update({
-            where: { id: item.productId },
-            data: { stockLevel: { decrement: item.quantity } },
+            where: { id: lineItem.productId },
+            data: { stockLevel: { decrement: lineItem.quantity } },
           });
 
-          // Record inventory transaction
+          // Log inventory movement
           await tx.inventoryTransaction.create({
             data: {
-              productId: item.productId,
+              productId: lineItem.productId,
               type: "OUT",
-              quantity: item.quantity,
-              reason: `Sale Approved: ${sale.invoiceNumber}`,
+              quantity: lineItem.quantity,
+              reason: `Approved Sale fulfillment: ${targetSale.invoiceNumber}`,
             },
           });
         }
 
-        // Record financial transaction
+        // Create the financial record for the income
         await tx.financialTransaction.create({
           data: {
-            saleId: sale.id,
+            saleId: targetSale.id,
             type: "INCOME",
-            amount: sale.totalAmount,
-            paymentMethod: sale.paymentMethod,
-            reference: sale.invoiceNumber,
-            description: `Payment for Approved Sale ${sale.invoiceNumber}`,
+            amount: targetSale.totalAmount,
+            paymentMethod: targetSale.paymentMethod,
+            reference: targetSale.invoiceNumber,
+            description: `Auto-recorded income for Approved Invoice ${targetSale.invoiceNumber}`,
           },
         });
       }
 
-      return updated;
+      return updatedSale;
     });
 
-    res.json({ success: true, data: updatedSale });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: updatedSaleResult });
+  } catch (err) {
+    console.error("Manager Approval Error:", err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
+

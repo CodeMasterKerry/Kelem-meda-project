@@ -1,11 +1,14 @@
 import { prisma } from "../config/db.js";
 
-// Get all approvals
+/**
+ * Fetches all formal approvals logged in the system.
+ * Useful for auditing manager activity.
+ */
 export const getAllApprovals = async (req, res) => {
   try {
     const { status, managerId, startDate, endDate } = req.query;
 
-    const where = {
+    const approvalFilters = {
       ...(status && { status }),
       ...(managerId && { managerId }),
       ...(startDate &&
@@ -17,8 +20,8 @@ export const getAllApprovals = async (req, res) => {
         }),
     };
 
-    const approvals = await prisma.approval.findMany({
-      where,
+    const approvalLogs = await prisma.approval.findMany({
+      where: approvalFilters,
       include: {
         sale: {
           include: {
@@ -35,18 +38,18 @@ export const getAllApprovals = async (req, res) => {
       orderBy: { approvedAt: "desc" },
     });
 
-    res.json({ success: true, data: approvals });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: approvalLogs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error loading approval ledger: " + err.message });
   }
 };
 
-// Get approval by ID
+// Retrieve details for a specific manager approval event
 export const getApprovalById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const approval = await prisma.approval.findUnique({
+    const specificApproval = await prisma.approval.findUnique({
       where: { id: parseInt(id) },
       include: {
         sale: {
@@ -66,22 +69,22 @@ export const getApprovalById = async (req, res) => {
       },
     });
 
-    if (!approval) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Approval not found" });
+    if (!specificApproval) {
+      return res.status(404).json({ success: false, message: "Approval record not found." });
     }
 
-    res.json({ success: true, data: approval });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: specificApproval });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Server error during record retrieval." });
   }
 };
 
-// Get pending approvals (sales requiring approval)
+/**
+ * Lists all high-value sales that are currently waiting for a manager's signature.
+ */
 export const getPendingApprovals = async (req, res) => {
   try {
-    const pendingSales = await prisma.sale.findMany({
+    const pendingTransactions = await prisma.sale.findMany({
       where: {
         requiresApproval: true,
         status: "PENDING",
@@ -97,18 +100,18 @@ export const getPendingApprovals = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    res.json({ success: true, data: pendingSales });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: pendingTransactions });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Could not fetch pending sales list." });
   }
 };
 
-// Get approvals by manager
+// Get a filtered history of what a specific manager has reviewed
 export const getApprovalsByManager = async (req, res) => {
   try {
     const { managerId } = req.params;
 
-    const approvals = await prisma.approval.findMany({
+    const managerHistory = await prisma.approval.findMany({
       where: { managerId },
       include: {
         sale: {
@@ -121,18 +124,21 @@ export const getApprovalsByManager = async (req, res) => {
       orderBy: { approvedAt: "desc" },
     });
 
-    res.json({ success: true, data: approvals });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, data: managerHistory });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Error loading manager's history." });
   }
 };
 
-// Get approval statistics
+/**
+ * Compiles performance metrics for the approval workflow.
+ * Shows totals, rates, and values for auditing.
+ */
 export const getApprovalStatistics = async (req, res) => {
   try {
     const { managerId, startDate, endDate } = req.query;
 
-    const where = {
+    const statFilters = {
       ...(managerId && { managerId }),
       ...(startDate &&
         endDate && {
@@ -143,25 +149,23 @@ export const getApprovalStatistics = async (req, res) => {
         }),
     };
 
-    const totalApprovals = await prisma.approval.count({ where });
-
-    const approvedCount = await prisma.approval.count({
-      where: { ...where, status: "APPROVED" },
+    const processedCount = await prisma.approval.count({ where: statFilters });
+    const approvedTotal = await prisma.approval.count({
+      where: { ...statFilters, status: "APPROVED" },
+    });
+    const rejectedTotal = await prisma.approval.count({
+      where: { ...statFilters, status: "REJECTED" },
     });
 
-    const rejectedCount = await prisma.approval.count({
-      where: { ...where, status: "REJECTED" },
-    });
-
-    const pendingCount = await prisma.sale.count({
+    const currentPendingCount = await prisma.sale.count({
       where: {
         requiresApproval: true,
         status: "PENDING",
       },
     });
 
-    // Get total value of approved sales
-    const approvedSales = await prisma.sale.findMany({
+    // Calculate the actual monetary value of approved high-value sales
+    const approvedSalesList = await prisma.sale.findMany({
       where: {
         status: "APPROVED",
         requiresApproval: true,
@@ -176,24 +180,25 @@ export const getApprovalStatistics = async (req, res) => {
       select: { totalAmount: true },
     });
 
-    const totalApprovedValue = approvedSales.reduce(
-      (sum, sale) => sum + sale.totalAmount,
+    const totalApprovedVolume = approvedSalesList.reduce(
+      (runningSum, sale) => runningSum + sale.totalAmount,
       0,
     );
 
     res.json({
       success: true,
       data: {
-        totalApprovals,
-        approvedCount,
-        rejectedCount,
-        pendingCount,
-        totalApprovedValue,
-        approvalRate:
-          totalApprovals > 0 ? (approvedCount / totalApprovals) * 100 : 0,
+        totalProcessed: processedCount,
+        approvedTotal,
+        rejectedTotal,
+        pendingNow: currentPendingCount,
+        monetaryVolume: totalApprovedVolume,
+        successRate:
+          processedCount > 0 ? (approvedTotal / processedCount) * 100 : 0,
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Statistics calculation failed: " + err.message });
   }
 };
+

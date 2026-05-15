@@ -13,7 +13,8 @@ import userRoutes from "./routes/userroutes.js";
 
 const app = express();
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+// Allow the frontend (Next.js) to talk to this server.
+// CLIENT_URL is set in .env — in prod this points to the deployed frontend domain.
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
@@ -21,10 +22,11 @@ app.use(
   }),
 );
 
+// Parse incoming JSON bodies and URL-encoded form data
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// Mount feature-specific route handlers — each module handles its own validation
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/sales", salesRoutes);
@@ -34,23 +36,24 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/approvals", approvalRoutes);
 app.use("/api/users", userRoutes);
 
-// ── 404 Handler ───────────────────────────────────────────────────────────────
+// Catch-all for any route the frontend may call that doesn't exist yet
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: "Route not found" });
+  res.status(404).json({ success: false, message: `No route found for ${req.method} ${req.originalUrl}` });
 });
 
-// ── Global Error Handler ──────────────────────────────────────────────────────
+// Central error handler — catches anything thrown inside route controllers
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
-  console.error(err.stack);
+  console.error(`[Server Error] ${err.stack}`);
   res.status(statusCode).json({
     success: false,
-    message: err.message || "Internal server error",
+    message: err.message || "An unexpected error occurred on the server.",
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
 
-// ── Graceful Shutdown ─────────────────────────────────────────────────────────
+// Clean up the Prisma connection before the process exits
+// This prevents connection pool leaks during container restarts
 process.on("SIGINT", async () => {
   await prisma.$disconnect();
   process.exit(0);
@@ -60,8 +63,9 @@ process.on("SIGTERM", async () => {
   process.exit(0);
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// Default port 5000 — avoids conflict with the Next.js dev server on 3000
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`Server is running at http://localhost:${PORT}`);
 });
+

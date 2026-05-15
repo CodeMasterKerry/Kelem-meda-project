@@ -22,24 +22,28 @@ async function main() {
   // Create Users
   console.log("Creating users...");
   const hashedPassword = await bcrypt.hash("12345678", 12);
+  const salesusername = "fuadabdela441@gmail.com";
+  const salespassword = "12345678";
+  const managerusername = "fuadabdela95@gmailcom";
+  const managerpassword = "12345678";
 
   const manager = await prisma.user.upsert({
-    where: { username: "fuadabdela95@gmail.com" },
+    where: { username: managerusername },
     update: {},
     create: {
-      username: "fuadabdela95@gmail.com",
-      password: hashedPassword,
+      username: managerusername,
+      password: managerpassword,
       name: "Fuad Abdela",
       role: "MANAGER",
     },
   });
 
   const officer = await prisma.user.upsert({
-    where: { username: "[EMAIL_ADDRESS]" },
+    where: { username: salesusername },
     update: {},
     create: {
-      username: "[EMAIL_ADDRESS]",
-      password: hashedPassword,
+      username: salesusername,
+      password: salespassword,
       name: "Fuad Seid",
       role: "SALES_OFFICER",
     },
@@ -203,8 +207,15 @@ async function main() {
 
   console.log("🎉 Database seeded successfully!");
   console.log("\n📝 Login Credentials:");
-  console.log("Manager - username: manager, password: password");
-  console.log("Sales Officer - username: officer, password: password");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("Manager Account:");
+  console.log("  Username: manager");
+  console.log("  Password: password");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("Sales Officer Account:");
+  console.log("  Username: officer");
+  console.log("  Password: password");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
 
 main()

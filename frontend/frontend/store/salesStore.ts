@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-interface SaleItem {
+export interface SaleItem {
   id?: string;
   saleId?: string;
   productId: string;
@@ -15,7 +15,7 @@ interface SaleItem {
   createdAt?: string;
 }
 
-interface Sale {
+export interface Sale {
   id: string;
   invoiceNumber: string;
   subtotal: number;
@@ -32,6 +32,12 @@ interface Sale {
   approvedBy?: { id: string; name: string } | null;
   salesOfficerId?: string;
   items: SaleItem[];
+  approval?: {
+    id: string;
+    status: string;
+    comment?: string;
+    createdAt: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore, useSalesStore } from "@/store";
+import { useAuthStore, useSalesStore, type Sale, type SaleItem } from "@/store";
 import {
   Card,
   CardContent,
@@ -50,7 +50,7 @@ export default function ApprovalPage() {
   const { user, token, logout } = useAuthStore();
   const { sales, fetchSales, isLoading } = useSalesStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSale, setSelectedSale] = useState<any>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [comment, setComment] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -471,7 +471,7 @@ export default function ApprovalPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedSale.items?.map((item: any) => (
+                      {selectedSale.items?.map((item: SaleItem) => (
                         <TableRow key={item.id}>
                           <TableCell>
                             <div>
@@ -487,13 +487,13 @@ export default function ApprovalPage() {
                             {item.quantity}
                           </TableCell>
                           <TableCell className="text-right">
-                            {item.unitPrice.toFixed(2)} Birr
+                            {(item.unitPrice ?? 0).toFixed(2)} Birr
                           </TableCell>
                           <TableCell className="text-right text-red-600">
-                            -{item.discount.toFixed(2)} Birr
+                            -{(item.discount ?? 0).toFixed(2)} Birr
                           </TableCell>
                           <TableCell className="text-right font-semibold">
-                            {item.total.toFixed(2)} Birr
+                            {(item.total ?? 0).toFixed(2)} Birr
                           </TableCell>
                         </TableRow>
                       ))}

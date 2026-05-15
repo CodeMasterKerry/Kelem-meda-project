@@ -2,11 +2,17 @@ import { create } from "zustand";
 
 interface Product {
   id: string;
+  sku: string;
   name: string;
   description?: string;
-  price: number;
-  stock: number;
-  category?: string;
+  categoryId: number;
+  category?: { id: number; name: string };
+  costPrice: number;
+  sellingPrice: number;
+  stockLevel: number;
+  lowStockThreshold: number;
+  status: "ACTIVE" | "INACTIVE";
+  isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +39,7 @@ interface ProductState {
   clearError: () => void;
 }
 
-export const useProductStore = create<ProductState>((set, get) => ({
+export const useProductStore = create<ProductState>((set) => ({
   products: [],
   selectedProduct: null,
   isLoading: false,
@@ -52,8 +58,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
         throw new Error("Failed to fetch products");
       }
 
-      const data = await response.json();
-      set({ products: data, isLoading: false });
+      const responseData = await response.json();
+      set({ products: responseData.data, isLoading: false });
     } catch (error) {
       set({
         error:
@@ -79,9 +85,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
         throw new Error("Failed to add product");
       }
 
-      const newProduct = await response.json();
+      const responseData = await response.json();
       set((state) => ({
-        products: [...state.products, newProduct],
+        products: [...state.products, responseData.data],
         isLoading: false,
       }));
     } catch (error) {
@@ -112,9 +118,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
         throw new Error("Failed to update product");
       }
 
-      const updatedProduct = await response.json();
+      const responseData = await response.json();
       set((state) => ({
-        products: state.products.map((p) => (p.id === id ? updatedProduct : p)),
+        products: state.products.map((p) => (p.id === id ? responseData.data : p)),
         isLoading: false,
       }));
     } catch (error) {

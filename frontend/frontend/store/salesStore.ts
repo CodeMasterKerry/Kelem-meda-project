@@ -1,17 +1,34 @@
 import { create } from "zustand";
 
 interface SaleItem {
+  id?: string;
+  saleId?: string;
   productId: string;
   quantity: number;
-  price: number;
+  price?: number;
+  unitPrice?: number;
+  subtotal?: number;
+  discount?: number;
+  vat?: number;
+  total?: number;
+  createdAt?: string;
 }
 
 interface Sale {
   id: string;
-  salesOfficerId: string;
-  items: SaleItem[];
+  invoiceNumber: string;
+  subtotal: number;
+  discount: number;
+  taxableAmount: number;
+  vat: number;
   totalAmount: number;
+  paymentMethod?: "CASH" | "TRANSFER" | "MOBILE";
+  requiresApproval: boolean;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  preparedById: string;
+  approvedById?: string | null;
+  salesOfficerId?: string;
+  items: SaleItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -53,8 +70,8 @@ export const useSalesStore = create<SalesState>((set) => ({
         throw new Error("Failed to fetch sales");
       }
 
-      const data = await response.json();
-      set({ sales: data, isLoading: false });
+      const responseData = await response.json();
+      set({ sales: responseData.data, isLoading: false });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Failed to fetch sales",
@@ -79,9 +96,9 @@ export const useSalesStore = create<SalesState>((set) => ({
         throw new Error("Failed to create sale");
       }
 
-      const newSale = await response.json();
+      const responseData = await response.json();
       set((state) => ({
-        sales: [...state.sales, newSale],
+        sales: [...state.sales, responseData.data],
         isLoading: false,
       }));
     } catch (error) {
@@ -115,9 +132,9 @@ export const useSalesStore = create<SalesState>((set) => ({
         throw new Error("Failed to update sale status");
       }
 
-      const updatedSale = await response.json();
+      const responseData = await response.json();
       set((state) => ({
-        sales: state.sales.map((s) => (s.id === id ? updatedSale : s)),
+        sales: state.sales.map((s) => (s.id === id ? responseData.data : s)),
         isLoading: false,
       }));
     } catch (error) {

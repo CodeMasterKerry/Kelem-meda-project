@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 interface User {
   id: string;
-  email: string;
+  username: string;
   name: string;
   role: "SALES_OFFICER" | "MANAGER" | "ADMIN";
 }
@@ -16,7 +16,7 @@ interface AuthState {
   error: string | null;
 
   // Actions
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User) => void;
   setToken: (token: string) => void;
@@ -32,23 +32,24 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
 
-      login: async (email: string, password: string) => {
+      login: async (username: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
           const response = await fetch("http://localhost:5000/api/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ username, password }),
           });
+          
+          const responseData = await response.json();
 
           if (!response.ok) {
-            throw new Error("Login failed");
+            throw new Error(responseData.message || "Login failed");
           }
 
-          const data = await response.json();
           set({
-            user: data.user,
-            token: data.token,
+            user: responseData.data,
+            token: responseData.token,
             isAuthenticated: true,
             isLoading: false,
           });

@@ -21,21 +21,19 @@ import {
   Filter,
   BarChart3,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import Image from "next/image";
 
 export default function SalesOfficerDashboard() {
   const { user, token } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const { sales, fetchSales } = useSalesStore();
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (token) {
       fetchProducts(token);
       fetchSales(token);
     }
-  }, [token]);
+  }, [token, fetchProducts, fetchSales]);
 
   // Calculate statistics
   const todaySales = sales.filter((sale) => {
@@ -132,7 +130,7 @@ export default function SalesOfficerDashboard() {
             Welcome back, {user?.name?.split(" ")[0]}! 👋
           </h2>
           <p className="text-gray-600">
-            Here's what's happening with your sales today.
+            Here&apos;s what&apos;s happening with your sales today.
           </p>
         </div>
 

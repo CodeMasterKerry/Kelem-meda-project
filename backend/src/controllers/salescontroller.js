@@ -1,14 +1,27 @@
 import { prisma } from "../config/db.js";
-
-const VAT_RATE = 0.15;
-const APPROVAL_THRESHOLD = 50000;
+import {
+  generateInvoiceNumber,
+  calculateItemTotal,
+  calculateSaleTotal,
+  validateSaleItems,
+  checkStockAvailability,
+} from "../utils/utils.js";
 
 export const createSale = async (req, res) => {
   const { items, paymentMethod, discountPercent = 0, preparedById } = req.body;
 
   try {
+    // Validate items
+    const validation = validateSaleItems(items);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sale items",
+        errors: validation.errors,
+      });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      let subtotal = 0;
       const saleItemsData = [];
 
       // 1. Process each item
@@ -21,21 +34,29 @@ export const createSale = async (req, res) => {
           throw new Error(`Product ${item.productId} not found or inactive`);
         }
 
-        if (product.stockLevel < item.quantity) {
-          throw new Error(`Insufficient stock for product: ${product.name}`);
+        // Check stock availability
+        const stockCheck = checkStockAvailability(product, item.quantity);
+        if (!stockCheck.sufficient) {
+          throw new Error(
+            `Insufficient stock for product: ${product.name}. Available: ${stockCheck.available}, Requested: ${stockCheck.requested}`,
+          );
         }
 
-        const itemSubtotal = item.quantity * product.sellingPrice;
-        subtotal += itemSubtotal;
+        // Calculate item totals using utils
+        const itemTotals = calculateItemTotal(
+          item.quantity,
+          product.sellingPrice,
+          item.discountPercent || 0,
+        );
 
         saleItemsData.push({
           productId: product.id,
           quantity: item.quantity,
           unitPrice: product.sellingPrice,
-          subtotal: itemSubtotal,
-          discount: 0, // Individual item discount could be added here if needed
-          vat: itemSubtotal * VAT_RATE,
-          total: itemSubtotal * (1 + VAT_RATE),
+          subtotal: itemTotals.subtotal,
+          discount: itemTotals.discount,
+          vat: itemTotals.vat,
+          total: itemTotals.total,
         });
 
         // 2. Deduct stock
@@ -55,37 +76,27 @@ export const createSale = async (req, res) => {
         });
       }
 
-      // 4. Calculate final totals
+      // 4. Calculate final totals using utils
+      const saleTotals = calculateSaleTotal(saleItemsData, discountPercent);
 
-      const discountAmount = subtotal * (discountPercent / 100);
-      const taxableAmount = subtotal - discountAmount;
-      const vatAmount = taxableAmount * VAT_RATE;
-      const totalAmount = taxableAmount + vatAmount;
+      // 5. Generate invoice number
+      const invoiceNumber = await generateInvoiceNumber();
 
-      const requiresApproval = totalAmount > APPROVAL_THRESHOLD;
-
-      // 5. Create Sale record
+      // 6. Create Sale record
       const sale = await tx.sale.create({
         data: {
-          invoiceNumber: `INV-${Date.now()}`,
-          subtotal,
-          discount: discountAmount,
-          taxableAmount,
-          vat: vatAmount,
-          totalAmount,
+          invoiceNumber,
+          subtotal: saleTotals.subtotal,
+          discount: saleTotals.discount,
+          taxableAmount: saleTotals.taxableAmount,
+          vat: saleTotals.vat,
+          totalAmount: saleTotals.totalAmount,
           paymentMethod,
-          requiresApproval,
-          status: requiresApproval ? "PENDING" : "APPROVED",
+          requiresApproval: saleTotals.requiresApproval,
+          status: saleTotals.requiresApproval ? "PENDING" : "APPROVED",
           preparedById,
           items: {
-            create: saleItemsData.map((item) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              subtotal: item.subtotal,
-              vat: item.vat,
-              total: item.total,
-            })),
+            create: saleItemsData,
           },
         },
         include: { items: true },

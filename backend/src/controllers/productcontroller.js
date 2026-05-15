@@ -54,50 +54,6 @@ export const getProductById = async (req, res) => {
   }
 };
 
-// Generate unique SKU automatically
-const generateSKU = async (categoryId) => {
-  try {
-    // Get category
-    const category = await prisma.category.findUnique({
-      where: { id: parseInt(categoryId) },
-    });
-
-    if (!category) {
-      throw new Error("Category not found");
-    }
-
-    // Get category prefix (first 3 letters uppercase)
-    const categoryPrefix = category.name
-      .substring(0, 3)
-      .toUpperCase()
-      .replace(/[^A-Z]/g, "X");
-
-    // Count products in this category
-    const productCount = await prisma.product.count({
-      where: { categoryId: parseInt(categoryId) },
-    });
-
-    // Generate SKU: PREFIX-YYYYMMDD-XXXX
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
-    const sequence = String(productCount + 1).padStart(4, "0");
-
-    let sku = `${categoryPrefix}-${dateStr}-${sequence}`;
-    let counter = 1;
-
-    // Ensure uniqueness
-    while (await prisma.product.findUnique({ where: { sku } })) {
-      const newSequence = String(productCount + 1 + counter).padStart(4, "0");
-      sku = `${categoryPrefix}-${dateStr}-${newSequence}`;
-      counter++;
-    }
-
-    return sku;
-  } catch (error) {
-    throw new Error(`Failed to generate SKU: ${error.message}`);
-  }
-};
-
 // Create new product
 export const createProduct = async (req, res) => {
   try {
@@ -118,7 +74,7 @@ export const createProduct = async (req, res) => {
       });
     }
 
-    // Generate SKU automatically
+    // Generate SKU automatically using utils
     const sku = await generateSKU(categoryId);
 
     const product = await prisma.product.create({

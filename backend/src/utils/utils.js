@@ -1,21 +1,8 @@
 import { prisma } from "../config/db.js";
 
-// ══════════════════════════════════════════════════════════════════════════════
-// CONSTANTS
-// ══════════════════════════════════════════════════════════════════════════════
-
 export const VAT_RATE = 0.15; // 15% VAT
 export const APPROVAL_THRESHOLD = 50000; // Sales above this amount require approval
 
-// ══════════════════════════════════════════════════════════════════════════════
-// SKU GENERATION
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Generate unique SKU for a product
- * Format: PREFIX-YYYYMMDD-XXXX
- * Example: ELE-20260515-0001
- */
 export const generateSKU = async (categoryId) => {
   try {
     // Get category
@@ -27,7 +14,6 @@ export const generateSKU = async (categoryId) => {
       throw new Error("Category not found");
     }
 
-    // Get category prefix (first 3 letters uppercase)
     const categoryPrefix = category.name
       .substring(0, 3)
       .toUpperCase()
@@ -59,15 +45,6 @@ export const generateSKU = async (categoryId) => {
   }
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// INVOICE NUMBER GENERATION
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Generate unique invoice number
- * Format: INV-YYYYMMDD-XXXX
- * Example: INV-20260515-0001
- */
 export const generateInvoiceNumber = async () => {
   try {
     const date = new Date();
@@ -108,17 +85,6 @@ export const generateInvoiceNumber = async () => {
   }
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// SALE CALCULATIONS
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Calculate item totals
- * @param {number} quantity - Quantity of items
- * @param {number} unitPrice - Price per unit
- * @param {number} itemDiscountPercent - Discount percentage for this item (default 0)
- * @returns {object} - { subtotal, discount, vat, total }
- */
 export const calculateItemTotal = (
   quantity,
   unitPrice,
@@ -138,12 +104,6 @@ export const calculateItemTotal = (
   };
 };
 
-/**
- * Calculate sale totals from items
- * @param {Array} items - Array of sale items with calculated totals
- * @param {number} saleDiscountPercent - Overall sale discount percentage (default 0)
- * @returns {object} - { subtotal, discount, taxableAmount, vat, totalAmount, requiresApproval }
- */
 export const calculateSaleTotal = (items, saleDiscountPercent = 0) => {
   // Sum up all item subtotals
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
@@ -175,12 +135,6 @@ export const calculateSaleTotal = (items, saleDiscountPercent = 0) => {
   };
 };
 
-/**
- * Calculate profit margin
- * @param {number} costPrice - Cost price of the product
- * @param {number} sellingPrice - Selling price of the product
- * @returns {object} - { profit, profitMargin }
- */
 export const calculateProfitMargin = (costPrice, sellingPrice) => {
   const profit = sellingPrice - costPrice;
   const profitMargin = costPrice > 0 ? (profit / costPrice) * 100 : 0;
@@ -191,15 +145,6 @@ export const calculateProfitMargin = (costPrice, sellingPrice) => {
   };
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// REPORT CALCULATIONS
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Calculate sales summary statistics
- * @param {Array} sales - Array of sale records
- * @returns {object} - Summary statistics
- */
 export const calculateSalesSummary = (sales) => {
   const totalSales = sales.length;
   const totalRevenue = sales.reduce((sum, s) => sum + s.totalAmount, 0);
@@ -234,11 +179,6 @@ export const calculateSalesSummary = (sales) => {
   };
 };
 
-/**
- * Calculate inventory value
- * @param {Array} products - Array of products
- * @returns {object} - Inventory value statistics
- */
 export const calculateInventoryValue = (products) => {
   const totalProducts = products.length;
   const totalStockUnits = products.reduce((sum, p) => sum + p.stockLevel, 0);
@@ -261,12 +201,6 @@ export const calculateInventoryValue = (products) => {
   };
 };
 
-/**
- * Calculate top selling products
- * @param {Array} saleItems - Array of sale items
- * @param {number} limit - Number of top products to return
- * @returns {Array} - Top selling products
- */
 export const calculateTopSellingProducts = (saleItems, limit = 10) => {
   const productSales = {};
 
@@ -297,11 +231,6 @@ export const calculateTopSellingProducts = (saleItems, limit = 10) => {
     }));
 };
 
-/**
- * Calculate daily sales trend
- * @param {Array} sales - Array of sales
- * @returns {object} - Sales grouped by day
- */
 export const calculateDailySalesTrend = (sales) => {
   const dailySales = {};
 
@@ -330,15 +259,6 @@ export const calculateDailySalesTrend = (sales) => {
     }));
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// VALIDATION HELPERS
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Validate sale items before processing
- * @param {Array} items - Array of sale items
- * @returns {object} - { valid: boolean, errors: Array }
- */
 export const validateSaleItems = (items) => {
   const errors = [];
 
@@ -362,12 +282,6 @@ export const validateSaleItems = (items) => {
   };
 };
 
-/**
- * Check if stock is sufficient for sale
- * @param {object} product - Product object
- * @param {number} requestedQuantity - Requested quantity
- * @returns {object} - { sufficient: boolean, available: number }
- */
 export const checkStockAvailability = (product, requestedQuantity) => {
   const available = product.stockLevel;
   const sufficient = available >= requestedQuantity;
@@ -380,15 +294,6 @@ export const checkStockAvailability = (product, requestedQuantity) => {
   };
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// DATE HELPERS
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Get date range for a specific period
- * @param {string} period - 'today', 'week', 'month', 'year'
- * @returns {object} - { startDate, endDate }
- */
 export const getDateRange = (period) => {
   const now = new Date();
   let startDate, endDate;
@@ -434,32 +339,15 @@ export const getDateRange = (period) => {
   return { startDate, endDate };
 };
 
-/**
- * Format currency (Ethiopian Birr)
- * @param {number} amount - Amount to format
- * @returns {string} - Formatted currency string
- */
 export const formatCurrency = (amount) => {
   return `${parseFloat(amount).toFixed(2)} Birr`;
 };
 
-/**
- * Parse float safely
- * @param {any} value - Value to parse
- * @param {number} defaultValue - Default value if parsing fails
- * @returns {number} - Parsed float or default
- */
 export const safeParseFloat = (value, defaultValue = 0) => {
   const parsed = parseFloat(value);
   return isNaN(parsed) ? defaultValue : parsed;
 };
 
-/**
- * Parse int safely
- * @param {any} value - Value to parse
- * @param {number} defaultValue - Default value if parsing fails
- * @returns {number} - Parsed int or default
- */
 export const safeParseInt = (value, defaultValue = 0) => {
   const parsed = parseInt(value);
   return isNaN(parsed) ? defaultValue : parsed;

@@ -28,39 +28,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
-  const router = useRouter();
-  const { user, token, logout, isAuthenticated } = useAuthStore();
+  const { token } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const { sales, fetchSales } = useSalesStore();
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => setMounted(true));
-  }, []);
-
-  useEffect(() => {
-    if (mounted && token) {
+    if (token) {
       fetchProducts(token);
       fetchSales(token);
     }
-  }, [mounted, token, fetchProducts, fetchSales]);
-
-  useEffect(() => {
-    if (mounted) {
-      if (!isAuthenticated) {
-        router.push("/login");
-      } else if (user && user.role !== "MANAGER") {
-        router.push(user.role === "SALES_OFFICER" ? "/sales-officer/dashboard" : "/login");
-      }
-    }
-  }, [mounted, isAuthenticated, user, router]);
-
-  if (!mounted || !isAuthenticated) return null;
-
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
+  }, [token, fetchProducts, fetchSales]);
 
   // Calculate statistics
   const pendingApprovals = sales.filter((sale) => sale.status === "PENDING");
@@ -124,74 +101,16 @@ export default function ManagerDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-orange-50/50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <div className="relative w-10 h-10 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5">
-                <div className="w-full h-full bg-white rounded-lg flex items-center justify-center">
-                  <Image
-                    src="/logo.png"
-                    alt="Logo"
-                    width={32}
-                    height={32}
-                    className="object-contain"
-                  />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Qelem Meda POS
-                </h1>
-                <p className="text-xs text-gray-500">Manager Portal</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name}
-                </p>
-                <Badge className="text-xs bg-gradient-to-r from-[#1E5BA8] to-[#F5A623]">
-                  {user?.role}
-                </Badge>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] flex items-center justify-center text-white font-semibold">
-                {user?.name?.charAt(0)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Good{" "}
-            {new Date().getHours() < 12
-              ? "Morning"
-              : new Date().getHours() < 18
-                ? "Afternoon"
-                : "Evening"}
-            , {user?.name?.split(" ")[0]}! 👋
-          </h2>
-          <p className="text-gray-600">
-            Here&apos;s your business overview for today.
-          </p>
-        </div>
+    <div className="space-y-8">
+      {/* Welcome Section */}
+      <div>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          Manager Dashboard
+        </h2>
+        <p className="text-gray-600">
+          Here&apos;s your business overview for today.
+        </p>
+      </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -454,7 +373,6 @@ export default function ManagerDashboard() {
             </CardContent>
           </Card>
         )}
-      </main>
     </div>
   );
 }

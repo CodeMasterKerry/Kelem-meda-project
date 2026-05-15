@@ -46,8 +46,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function ApprovalPage() {
-  const router = useRouter();
-  const { user, token, logout, isAuthenticated } = useAuthStore();
+  const { user, token } = useAuthStore();
   const { sales, fetchSales, isLoading } = useSalesStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -56,34 +55,12 @@ export default function ApprovalPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    requestAnimationFrame(() => setMounted(true));
-  }, []);
-
-  useEffect(() => {
-    if (mounted && token) {
+    if (token) {
       fetchSales(token);
     }
-  }, [mounted, token, fetchSales]);
-
-  useEffect(() => {
-    if (mounted) {
-      if (!isAuthenticated) {
-        router.push("/login");
-      } else if (user && user.role !== "MANAGER") {
-        router.push(user.role === "SALES_OFFICER" ? "/sales-officer/dashboard" : "/login");
-      }
-    }
-  }, [mounted, isAuthenticated, user, router]);
-
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
-
-  if (!mounted || !isAuthenticated) return null;
+  }, [token, fetchSales]);
 
   const pendingSales = sales.filter((sale) => sale.status === "PENDING");
 
@@ -172,70 +149,14 @@ export default function ApprovalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-orange-50/50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/manager/dashboard")}
-                className="text-gray-600 hover:text-[#1E5BA8]"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Link href="/manager/dashboard">
-                <div className="relative w-10 h-10 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5 cursor-pointer hover:scale-105 transition-transform">
-                  <div className="w-full h-full bg-white rounded-lg flex items-center justify-center">
-                    <Image
-                      src="/logo.png"
-                      alt="Logo"
-                      width={32}
-                      height={32}
-                      className="object-contain"
-                    />
-                  </div>
-                </div>
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Sales Approvals
-                </h1>
-                <p className="text-xs text-gray-500">Review & Approve Sales</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name}
-                </p>
-                <Badge className="text-xs bg-gradient-to-r from-[#1E5BA8] to-[#F5A623]">
-                  {user?.role}
-                </Badge>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] flex items-center justify-center text-white font-semibold">
-                {user?.name?.charAt(0)}
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sales Approvals</h1>
+          <p className="text-sm text-gray-500">Review & Approve Sales</p>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      </div>
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card className="border-0 shadow-md">
@@ -411,7 +332,6 @@ export default function ApprovalPage() {
             </div>
           </CardContent>
         </Card>
-      </main>
 
       {/* Sale Details & Approval Dialog */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
@@ -419,7 +339,7 @@ export default function ApprovalPage() {
           <DialogHeader>
             <DialogTitle>Review Sale</DialogTitle>
             <DialogDescription>
-              Invoice: {selectedSale?.invoiceNumber}
+              Invoice: {selectedSale?.invoiceNumber || "N/A"}
             </DialogDescription>
           </DialogHeader>
 
@@ -446,29 +366,29 @@ export default function ApprovalPage() {
                 <div>
                   <p className="text-sm text-gray-600">Date</p>
                   <p className="font-medium">
-                    {new Date(selectedSale.createdAt).toLocaleString()}
+                    {selectedSale?.createdAt ? new Date(selectedSale.createdAt).toLocaleString() : "N/A"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Payment Method</p>
                   <p className="font-medium">
-                    {selectedSale.paymentMethod || "N/A"}
+                    {selectedSale?.paymentMethod || "N/A"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Prepared By</p>
                   <p className="font-medium">
-                    {selectedSale.preparedBy?.name || "N/A"}
+                    {selectedSale?.preparedBy?.name || "N/A"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Requires Approval</p>
                   <Badge
                     variant={
-                      selectedSale.requiresApproval ? "warning" : "secondary"
+                      selectedSale?.requiresApproval ? "warning" : "secondary"
                     }
                   >
-                    {selectedSale.requiresApproval ? "Yes" : "No"}
+                    {selectedSale?.requiresApproval ? "Yes" : "No"}
                   </Badge>
                 </div>
               </div>
@@ -488,7 +408,7 @@ export default function ApprovalPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedSale.items?.map((item: SaleItem) => (
+                      {selectedSale?.items?.map((item: SaleItem) => (
                         <TableRow key={item.id}>
                           <TableCell>
                             <div>
@@ -524,31 +444,31 @@ export default function ApprovalPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">
-                    {selectedSale.subtotal.toFixed(2)} Birr
+                    {selectedSale?.subtotal.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Discount:</span>
                   <span className="font-medium text-red-600">
-                    -{selectedSale.discount.toFixed(2)} Birr
+                    -{selectedSale?.discount.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Taxable Amount:</span>
                   <span className="font-medium">
-                    {selectedSale.taxableAmount.toFixed(2)} Birr
+                    {selectedSale?.taxableAmount.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">VAT (15%):</span>
                   <span className="font-medium">
-                    {selectedSale.vat.toFixed(2)} Birr
+                    {selectedSale?.vat.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total Amount:</span>
                   <span className="text-[#1E5BA8]">
-                    {selectedSale.totalAmount.toFixed(2)} Birr
+                    {selectedSale?.totalAmount.toFixed(2)} Birr
                   </span>
                 </div>
               </div>

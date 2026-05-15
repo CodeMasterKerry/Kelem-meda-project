@@ -53,7 +53,7 @@ interface CartItem {
 
 export default function NewSalePage() {
   const router = useRouter();
-  const { user, token, logout, isAuthenticated } = useAuthStore();
+  const { user, token } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,34 +64,11 @@ export default function NewSalePage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
-
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
-    requestAnimationFrame(() => setMounted(true));
-  }, []);
-
-  useEffect(() => {
-    if (mounted && token) {
+    if (token) {
       fetchProducts(token);
     }
-  }, [mounted, token, fetchProducts]);
-
-  useEffect(() => {
-    if (mounted) {
-      if (!isAuthenticated) {
-        router.push("/login");
-      } else if (user && user.role !== "SALES_OFFICER") {
-        router.push(user.role === "MANAGER" ? "/manager/dashboard" : "/login");
-      }
-    }
-  }, [mounted, isAuthenticated, user, router]);
-
-  if (!mounted || !isAuthenticated) return null;
+  }, [token, fetchProducts]);
 
   const filteredProducts = products.filter(
     (product) =>
@@ -237,68 +214,14 @@ export default function NewSalePage() {
   const totals = calculateCartTotal();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-orange-50/50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/sales-officer/dashboard")}
-                className="text-gray-600 hover:text-[#1E5BA8]"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Link href="/sales-officer/dashboard">
-                <div className="relative w-10 h-10 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5 cursor-pointer hover:scale-105 transition-transform">
-                  <div className="w-full h-full bg-white rounded-lg flex items-center justify-center">
-                    <Image
-                      src="/logo.png"
-                      alt="Logo"
-                      width={32}
-                      height={32}
-                      className="object-contain"
-                    />
-                  </div>
-                </div>
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">New Sale</h1>
-                <p className="text-xs text-gray-500">
-                  Create Sales Transaction
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name}
-                </p>
-                <p className="text-xs text-gray-500">{user?.role}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] flex items-center justify-center text-white font-semibold">
-                {user?.name?.charAt(0)}
-              </div>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">New Sale</h1>
+          <p className="text-sm text-gray-500">Create a new sales transaction</p>
         </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      </div>
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -594,7 +517,6 @@ export default function NewSalePage() {
             </Card>
           </div>
         </div>
-      </main>
     </div>
   );
 }

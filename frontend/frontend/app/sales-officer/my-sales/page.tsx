@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore, useSalesStore, type Sale, type SaleItem } from "@/store";
 import {
   Card,
@@ -32,14 +31,10 @@ import {
   Search,
   RefreshCw,
   Eye,
-  ArrowLeft,
-  LogOut,
   ShoppingCart,
   Calendar,
   DollarSign,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
 
 export default function MySalesPage() {
   const { user, token } = useAuthStore();

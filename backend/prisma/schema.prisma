@@ -1,92 +1,151 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
 }
+enum UserRole {
+  SALES_OFFICER
+  MANAGER
+}
 
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SaleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StockType {
+  IN
+  OUT
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  MOBILE
+}
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  password  String
-  name      String
-  role      String   // "SALES_OFFICER" or "MANAGER"
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(uuid())
+  username        String   @unique
+  password        String
+  name            String
+  role            UserRole
+  preparedSales   Sale[] @relation("PreparedSales")
+  approvedSales   Sale[] @relation("ApprovedSales")
+  approvals       Approval[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
-model role {
-  id Int @id @default(autoincrement())
-  name String @unique
-  is_active Boolean @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
 
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
+
 model Product {
-  id           String         @id @default(uuid())
-  sku          String         @unique
-  name         String
-  category     String
-  costPrice    Float
-  sellingPrice Float
-  stockLevel   Int            @default(0)
-  status       String         @default("ACTIVE") // "ACTIVE" or "INACTIVE"
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  saleItems    SaleItem[]
-  stockHistory StockHistory[]
+  id                 String   @id @default(uuid())
+  sku                String   @unique
+  name               String
+  description        String?
+  categoryId         Int
+  category           Category @relation(fields: [categoryId], references: [id])
+  costPrice          Float
+  sellingPrice       Float
+  stockLevel         Int @default(0)
+  lowStockThreshold  Int @default(5)
+  status             ProductStatus @default(ACTIVE)
+  isDeleted          Boolean @default(false)
+  stockHistory       InventoryTransaction[]
+  saleItems          SaleItem[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+model Sale {
+  id                 String @id @default(uuid())
+  invoiceNumber      String @unique
+ subtotal           Float
+  discount           Float @default(0)
+  taxableAmount      Float
+  vat                Float
+  totalAmount        Float
+  paymentMethod      PaymentMethod?
+  requiresApproval   Boolean @default(false)
+  status             SaleStatus @default(APPROVED)
+  preparedById       String
+  approvedById       String?
+  preparedBy         User @relation("PreparedSales", fields: [preparedById], references: [id])
+  approvedBy         User? @relation("ApprovedSales", fields: [approvedById], references: [id])
+  items              SaleItem[]
+  approval           Approval?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
-model Sale {
-  id            String     @id @default(uuid())
-  invoiceNumber String     @unique
-  subtotal      Float
-  discount      Float      @default(0)
-  taxableAmount Float
-  vat           Float      // 15%
-  totalAmount   Float
-  status        String     @default("APPROVED") // "PENDING", "APPROVED", "REJECTED"
-  preparedBy    String     // User ID
-  approvedBy    String?    // User ID (if required)
-  createdAt     DateTime   @default(now())
-  items         SaleItem[]
-}
 
 model SaleItem {
-  id        String  @id @default(uuid())
-  saleId    String
-  productId String
-  quantity  Int
-  unitPrice Float
-  subtotal  Float
-  sale      Sale    @relation(fields: [saleId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
+  id            String @id @default(uuid())
+  saleId        String
+  productId     String
+  quantity      Int
+  unitPrice     Float
+  subtotal      Float
+  discount      Float @default(0)
+  vat           Float @default(0)
+  total         Float
+  sale          Sale @relation(fields: [saleId], references: [id])
+  product       Product @relation(fields: [productId], references: [id])
+  createdAt     DateTime @default(now())
 }
 
-model StockHistory {
-  id        String   @id @default(uuid())
-  productId String
-  type      String   // "IN" or "OUT"
-  quantity  Int
-  reason    String?  // e.g., "SALE", "RESTOCK", "ADJUSTMENT"
-  createdAt DateTime @default(now())
-  product   Product  @relation(fields: [productId], references: [id])
+
+model InventoryTransaction {
+  id            String @id @default(uuid())
+  productId     String
+  type          StockType
+  quantity      Int
+  reason        String?
+  product       Product @relation(fields: [productId], references: [id])
+  createdAt     DateTime @default(now())
 }
-model approvals{
-  id Int @id @default(autoincrement())
 
-sale_id String
-manager_id String
-status String
-comment String
-approved_at DateTime @default(now())
+model Approval {
+  id            Int @id @default(autoincrement())
+  saleId        String @unique
+  managerId     String
+  status        String
+  comment       String?
+  approvedAt    DateTime @default(now())
+  sale          Sale @relation(fields: [saleId], references: [id])
+  manager       User @relation(fields: [managerId], references: [id])
+  updatedAt     DateTime @updatedAt
+}
 
+model Report {
+  id            Int @id @default(autoincrement())
+  type          String
+  generatedBy   String
+  fileUrl       String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+
+model AuditLog {
+  id            String @id @default(uuid())
+  userId        String
+  action        String
+  entity        String
+  entityId      String
+  createdAt     DateTime @default(now())
 }

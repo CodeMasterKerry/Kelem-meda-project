@@ -132,7 +132,7 @@ export default function AppSidebar() {
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
               <div>
-                <h1 className="text-base font-bold text-gray-900">Qelem Meda</h1>
+                <h1 className="text-base font-bold text-gray-900">E-SIMS</h1>
                 <p className="text-[10px] text-gray-500">POS System</p>
               </div>
             </div>

@@ -254,6 +254,7 @@ export default function AddProductPage() {
                   placeholder="Enter product name"
                   className={validationErrors.name ? "border-red-500" : ""}
                   disabled={isSubmitting}
+                  required
                 />
                 {validationErrors.name && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
@@ -290,6 +291,7 @@ export default function AddProductPage() {
                         handleInputChange("categoryId", value)
                       }
                       disabled={isSubmitting}
+                      required
                     >
                       <SelectTrigger
                         className={
@@ -384,6 +386,7 @@ export default function AddProductPage() {
                       validationErrors.costPrice ? "border-red-500" : ""
                     }
                     disabled={isSubmitting}
+                    required
                   />
                   {validationErrors.costPrice && (
                     <p className="text-sm text-red-600 flex items-center gap-1">
@@ -411,6 +414,7 @@ export default function AddProductPage() {
                       validationErrors.sellingPrice ? "border-red-500" : ""
                     }
                     disabled={isSubmitting}
+                    required
                   />
                   {validationErrors.sellingPrice && (
                     <p className="text-sm text-red-600 flex items-center gap-1">
@@ -440,6 +444,7 @@ export default function AddProductPage() {
                       validationErrors.stockLevel ? "border-red-500" : ""
                     }
                     disabled={isSubmitting}
+                    required
                   />
                   {validationErrors.stockLevel && (
                     <p className="text-sm text-red-600 flex items-center gap-1">
@@ -466,6 +471,7 @@ export default function AddProductPage() {
                       validationErrors.lowStockThreshold ? "border-red-500" : ""
                     }
                     disabled={isSubmitting}
+                    required
                   />
                   {validationErrors.lowStockThreshold && (
                     <p className="text-sm text-red-600 flex items-center gap-1">

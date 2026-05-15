@@ -8,6 +8,7 @@ import {
   History,
   BarChart3,
   LogOut,
+  X,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -23,6 +24,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
@@ -63,6 +65,7 @@ export function SalesOfficerSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const { setOpenMobile } = useSidebar();
 
   const handleLogout = () => {
     logout();
@@ -71,15 +74,23 @@ export function SalesOfficerSidebar() {
 
   return (
     <Sidebar className="border-r border-gray-200">
-      <SidebarHeader className="h-16 flex items-center px-4 border-b">
+      <SidebarHeader className="h-16 relative flex items-center justify-center border-b bg-white">
         <Link
           href="/sales-officer/dashboard"
-          className="flex items-center space-x-3"
+          className="flex items-center"
         >
-          <span className="font-bold text-base text-gray-900 tracking-tight">
-            Qelem Meda
+          <span className="font-extrabold text-xl text-[#1E5BA8] tracking-widest">
+            E-SIMS
           </span>
         </Link>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="absolute right-2 md:hidden text-gray-500 hover:text-gray-700" 
+          onClick={() => setOpenMobile(false)}
+        >
+          <X className="h-5 w-5" />
+        </Button>
       </SidebarHeader>
       <SidebarContent className="py-4">
         <SidebarMenu>
@@ -88,15 +99,16 @@ export function SalesOfficerSidebar() {
               <SidebarMenuButton
                 asChild
                 isActive={pathname === item.href}
+                onClick={() => setOpenMobile(false)}
                 className={`w-full justify-start gap-3 px-4 py-6 text-sm font-medium transition-all duration-200 ${
                   pathname === item.href
-                    ? "bg-[#1E5BA8] text-white hover:bg-[#1E5BA8]/90"
+                    ? "!bg-[#1E5BA8] !text-white hover:!bg-[#1E5BA8]/90"
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
                 <Link href={item.href}>
                   <item.icon
-                    className={`w-5 h-5 ${pathname === item.href ? "text-white" : "text-gray-400"}`}
+                    className={`w-5 h-5 ${pathname === item.href ? "!text-white" : "text-gray-400"}`}
                   />
                   {item.title}
                 </Link>
@@ -119,7 +131,7 @@ export function SalesOfficerSidebar() {
         </div>
         <Button
           variant="outline"
-          className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 transition-colors"
+          className="w-full justify-start text-red-600 border-red-200 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-300 transition-colors mt-2 rounded-full"
           onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-2" />

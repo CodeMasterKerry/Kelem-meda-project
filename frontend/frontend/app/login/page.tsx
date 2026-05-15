@@ -103,10 +103,10 @@ export default function LoginPage() {
         {/* Logo and Brand */}
         <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1E5BA8] to-[#F5A623] bg-clip-text text-transparent">
-            Qelem Meda POS
+            E-SIMS
           </h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Smart Point of Sale System
+            Smart Inventory & Sale Management System
           </p>
         </div>
 

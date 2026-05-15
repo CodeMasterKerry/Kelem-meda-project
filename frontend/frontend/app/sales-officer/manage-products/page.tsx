@@ -43,22 +43,28 @@ import {
   Package,
   AlertTriangle,
   TrendingUp,
-  Filter,
   RefreshCw,
-  LogOut,
-  ArrowLeft,
   Edit,
   Trash2,
   Plus,
   AlertCircle,
   CheckCircle,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
+
+interface EditFormData {
+  name: string;
+  description: string;
+  categoryId: string;
+  costPrice: string;
+  sellingPrice: string;
+  lowStockThreshold: string;
+  status: "ACTIVE" | "INACTIVE";
+}
 
 export default function ManageProductsPage() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { token } = useAuthStore();
   const { products, fetchProducts, isLoading } = useProductStore();
   const { categories, fetchCategories } = useCategoryStore();
 
@@ -71,15 +77,14 @@ export default function ManageProductsPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [editFormData, setEditFormData] = useState<any>({});
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    name: "", description: "", categoryId: "", costPrice: "",
+    sellingPrice: "", lowStockThreshold: "5", status: "ACTIVE"
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-  };
 
   useEffect(() => {
     if (token) {
@@ -117,7 +122,7 @@ export default function ManageProductsPage() {
     outOfStock: products.filter((p) => p.stockLevel === 0).length,
   };
 
-  const handleEdit = (product: any) => {
+  const handleEdit = (product: typeof products[0]) => {
     setSelectedProduct(product);
     setEditFormData({
       name: product.name,
@@ -133,13 +138,14 @@ export default function ManageProductsPage() {
     setSuccess(null);
   };
 
-  const handleDelete = (product: any) => {
+  const handleDelete = (product: typeof products[0]) => {
     setSelectedProduct(product);
     setShowDeleteDialog(true);
     setError(null);
   };
 
   const handleUpdateProduct = async () => {
+    if (!selectedProduct) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -183,6 +189,7 @@ export default function ManageProductsPage() {
   };
 
   const handleDeleteProduct = async () => {
+    if (!selectedProduct) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -216,65 +223,7 @@ export default function ManageProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50/50 via-white to-orange-50/50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/sales-officer/dashboard")}
-                className="text-gray-600 hover:text-[#1E5BA8]"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <Link href="/sales-officer/dashboard">
-                <div className="relative w-10 h-10 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5 cursor-pointer hover:scale-105 transition-transform">
-                  <div className="w-full h-full bg-white rounded-lg flex items-center justify-center">
-                    <Image
-                      src="/logo.png"
-                      alt="Logo"
-                      width={32}
-                      height={32}
-                      className="object-contain"
-                    />
-                  </div>
-                </div>
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">
-                  Manage Products
-                </h1>
-                <p className="text-xs text-gray-500">Product Management</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.name}
-                </p>
-                <p className="text-xs text-gray-500">{user?.role}</p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] flex items-center justify-center text-white font-semibold">
-                {user?.name?.charAt(0)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="space-y-6">
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -677,8 +626,8 @@ export default function ManageProductsPage() {
               <div className="space-y-2">
                 <Label htmlFor="edit-status">Status</Label>
                 <Select
-                  value={editFormData.status || ""}
-                  onValueChange={(value) =>
+                  value={editFormData.status}
+                  onValueChange={(value: "ACTIVE" | "INACTIVE") =>
                     setEditFormData({ ...editFormData, status: value })
                   }
                 >

@@ -33,6 +33,11 @@ const menuItems = [
     href: "/sales-officer/dashboard",
   },
   {
+    title: "Add Product",
+    icon: PlusCircle,
+    href: "/sales-officer/add-product",
+  },
+  {
     title: "New Sale",
     icon: PlusCircle,
     href: "/sales-officer/new-sale",
@@ -67,7 +72,10 @@ export function SalesOfficerSidebar() {
   return (
     <Sidebar className="border-r border-gray-200">
       <SidebarHeader className="h-16 flex items-center px-4 border-b">
-        <Link href="/sales-officer/dashboard" className="flex items-center space-x-3">
+        <Link
+          href="/sales-officer/dashboard"
+          className="flex items-center space-x-3"
+        >
           <div className="relative w-8 h-8 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5">
             <div className="w-full h-full bg-white rounded-lg flex items-center justify-center overflow-hidden">
               <Image
@@ -98,7 +106,9 @@ export function SalesOfficerSidebar() {
                 }`}
               >
                 <Link href={item.href}>
-                  <item.icon className={`w-5 h-5 ${pathname === item.href ? "text-white" : "text-gray-400"}`} />
+                  <item.icon
+                    className={`w-5 h-5 ${pathname === item.href ? "text-white" : "text-gray-400"}`}
+                  />
                   {item.title}
                 </Link>
               </SidebarMenuButton>

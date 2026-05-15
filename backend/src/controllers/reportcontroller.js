@@ -35,13 +35,13 @@ export const getDailyReport = async (req, res) => {
     });
 
     const dailySummary = {
-      reportDate: reportDate.toISOString().split("T")[0],
-      totalTransactions: approvedSalesForDay.length,
+      date: reportDate.toISOString().split("T")[0],
+      totalSales: approvedSalesForDay.length,
       totalRevenue: approvedSalesForDay.reduce((acc, s) => acc + s.totalAmount, 0),
       totalVAT: approvedSalesForDay.reduce((acc, s) => acc + s.vat, 0),
       totalDiscount: approvedSalesForDay.reduce((acc, s) => acc + s.discount, 0),
-      grossSubtotal: approvedSalesForDay.reduce((acc, s) => acc + s.subtotal, 0),
-      paymentBreakdown: {
+      subtotal: approvedSalesForDay.reduce((acc, s) => acc + s.subtotal, 0),
+      paymentMethods: {
         CASH: approvedSalesForDay.filter((s) => s.paymentMethod === "CASH").length,
         TRANSFER: approvedSalesForDay.filter((s) => s.paymentMethod === "TRANSFER").length,
         MOBILE: approvedSalesForDay.filter((s) => s.paymentMethod === "MOBILE").length,
@@ -128,7 +128,7 @@ export const getMonthlyReport = async (req, res) => {
       totalVAT: monthlySales.reduce((acc, s) => acc + s.vat, 0),
       totalDiscount: monthlySales.reduce((acc, s) => acc + s.discount, 0),
       averageSaleValue: monthlySales.length > 0 ? totalRev / monthlySales.length : 0,
-      dailyBreakdown: dayByDayBreakdown,
+      dailySales: dayByDayBreakdown,
       topProducts: topPerformers,
     };
 

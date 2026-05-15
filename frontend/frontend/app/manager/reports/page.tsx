@@ -457,7 +457,7 @@ export default function ManagerReportsPage() {
           <CardContent>
             <div className="grid grid-cols-3 gap-4">
               {(["CASH", "TRANSFER", "MOBILE"] as const).map((method) => {
-                const count = dailySummary.paymentMethods[method] ?? 0;
+                const count = dailySummary.paymentMethods?.[method] ?? 0;
                 const total = dailySummary.totalSales || 1;
                 const pct = Math.round((count / total) * 100);
                 return (

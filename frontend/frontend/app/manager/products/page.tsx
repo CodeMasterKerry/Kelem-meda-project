@@ -74,6 +74,8 @@ export default function ManagerProductsPage() {
   const [filterStatus, setFilterStatus] = useState<
     "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK"
   >("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -101,6 +103,8 @@ export default function ManagerProductsPage() {
     }
   }, [token, fetchProducts, fetchCategories]);
 
+  // Reset to page 1 is now handled in search/filter handlers to avoid cascading renders
+
   // Filter products
   const filteredProducts = (products || []).filter((product) => {
     if (!product) return false;
@@ -123,6 +127,12 @@ export default function ManagerProductsPage() {
 
     return matchesSearch && matchesCategory && matchesStatus;
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const stats = {
     total: (products || []).length,
@@ -468,11 +478,17 @@ export default function ManagerProductsPage() {
               <Input
                 placeholder="Search by name or SKU..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-10"
               />
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <Select value={filterCategory} onValueChange={(v) => {
+              setFilterCategory(v);
+              setCurrentPage(1);
+            }}>
               <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
@@ -490,7 +506,10 @@ export default function ManagerProductsPage() {
               <Button
                 variant={filterStatus === "ALL" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("ALL")}
+                onClick={() => {
+                  setFilterStatus("ALL");
+                  setCurrentPage(1);
+                }}
                 className={filterStatus === "ALL" ? "bg-[#1E5BA8]" : ""}
               >
                 All
@@ -498,7 +517,10 @@ export default function ManagerProductsPage() {
               <Button
                 variant={filterStatus === "ACTIVE" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("ACTIVE")}
+                onClick={() => {
+                  setFilterStatus("ACTIVE");
+                  setCurrentPage(1);
+                }}
                 className={filterStatus === "ACTIVE" ? "bg-green-600" : ""}
               >
                 Active
@@ -506,7 +528,10 @@ export default function ManagerProductsPage() {
               <Button
                 variant={filterStatus === "LOW_STOCK" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFilterStatus("LOW_STOCK")}
+                onClick={() => {
+                  setFilterStatus("LOW_STOCK");
+                  setCurrentPage(1);
+                }}
                 className={filterStatus === "LOW_STOCK" ? "bg-orange-600" : ""}
               >
                 Low Stock
@@ -573,7 +598,7 @@ export default function ManagerProductsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((product) => (
+                  paginatedProducts.map((product) => (
                     <TableRow key={product.id} className="hover:bg-gray-50">
                       <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                       <TableCell>
@@ -642,6 +667,50 @@ export default function ManagerProductsPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredProducts.length > 0 && (
+            <div className="flex items-center justify-between mt-6">
+              <div className="text-sm text-gray-500">
+                Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * itemsPerPage, filteredProducts.length)}
+                </span> of{" "}
+                <span className="font-medium">{filteredProducts.length}</span> results
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      className={currentPage === page ? "bg-[#1E5BA8]" : "w-8"}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -157,10 +157,10 @@ export default function ManagerProductsPage() {
     if (!qty || qty < 1) { setError("Enter a valid quantity"); return; }
     setIsSubmitting(true); setError(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/inventory/restock`, {
+      const res = await fetch(`http://localhost:5000/api/products/${selectedProduct.id}/adjust-stock`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ productId: selectedProduct.id, quantity: qty, reason: "Manager Restock" }),
+        body: JSON.stringify({ adjustment: qty, type: "RESTOCK", reason: "Manager Restock" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Restock failed");

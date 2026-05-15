@@ -23,7 +23,7 @@ router
   .route("/:id")
   .get(getProductById)
   .put(updateProduct)
-  .delete(restrictTo("MANAGER"), deleteProduct); // Only manager can delete
+  .delete(restrictTo("MANAGER", "SALES_OFFICER"), deleteProduct);
 
 router.route("/:id/adjust-stock").post(adjustStock);
 

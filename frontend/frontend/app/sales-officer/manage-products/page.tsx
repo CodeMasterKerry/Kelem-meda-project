@@ -76,11 +76,14 @@ export default function ManageProductsPage() {
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRestockDialog, setShowRestockDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({
     name: "", description: "", categoryId: "", costPrice: "",
     sellingPrice: "", lowStockThreshold: "5", status: "ACTIVE"
   });
+  const [restockAmount, setRestockAmount] = useState("");
+  const [restockReason, setRestockReason] = useState("Restock");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -142,6 +145,15 @@ export default function ManageProductsPage() {
     setSelectedProduct(product);
     setShowDeleteDialog(true);
     setError(null);
+  };
+
+  const handleRestock = (product: typeof products[0]) => {
+    setSelectedProduct(product);
+    setRestockAmount("");
+    setRestockReason("Restock");
+    setShowRestockDialog(true);
+    setError(null);
+    setSuccess(null);
   };
 
   const handleUpdateProduct = async () => {
@@ -217,6 +229,46 @@ export default function ManageProductsPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete product");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRestockProduct = async () => {
+    if (!selectedProduct || !restockAmount) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/products/${selectedProduct.id}/adjust-stock`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            adjustment: parseInt(restockAmount),
+            type: "RESTOCK",
+            reason: restockReason,
+          }),
+        },
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || "Failed to restock product");
+      }
+
+      setSuccess("Stock adjusted successfully!");
+      setShowRestockDialog(false);
+      if (token) {
+        fetchProducts(token);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to restock product");
     } finally {
       setIsSubmitting(false);
     }
@@ -484,6 +536,15 @@ export default function ManageProductsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleRestock(product)}
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              title="Restock"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleEdit(product)}
                               className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             >
@@ -687,6 +748,54 @@ export default function ManageProductsPage() {
               disabled={isSubmitting}
             >
               {isSubmitting ? "Deleting..." : "Delete Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Restock Dialog */}
+      <Dialog open={showRestockDialog} onOpenChange={setShowRestockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restock Product</DialogTitle>
+            <DialogDescription>
+              Add stock to {selectedProduct?.name}. Current stock: {selectedProduct?.stockLevel}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="restock-amount">Adjustment Amount</Label>
+              <Input
+                id="restock-amount"
+                type="number"
+                placeholder="e.g. 50"
+                value={restockAmount}
+                onChange={(e) => setRestockAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="restock-reason">Reason</Label>
+              <Input
+                id="restock-reason"
+                placeholder="Restock, Adjustment, etc."
+                value={restockReason}
+                onChange={(e) => setRestockReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowRestockDialog(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRestockProduct}
+              disabled={isSubmitting || !restockAmount}
+              className="bg-[#1E5BA8] hover:bg-[#164a8f]"
+            >
+              {isSubmitting ? "Updating..." : "Update Stock"}
             </Button>
           </DialogFooter>
         </DialogContent>

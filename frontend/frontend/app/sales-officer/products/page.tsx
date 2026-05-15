@@ -9,6 +9,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +36,21 @@ import {
   AlertTriangle,
   TrendingUp,
   RefreshCw,
+  Edit,
+  Trash2,
+  AlertCircle,
+  CheckCircle,
 } from "lucide-react";
+
+interface EditFormData {
+  name: string;
+  description: string;
+  categoryId: string;
+  costPrice: string;
+  sellingPrice: string;
+  lowStockThreshold: string;
+  status: "ACTIVE" | "INACTIVE";
+}
 
 import {
   Select,
@@ -45,6 +69,20 @@ export default function ProductsPage() {
     "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK"
   >("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
+
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showRestockDialog, setShowRestockDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    name: "", description: "", categoryId: "", costPrice: "",
+    sellingPrice: "", lowStockThreshold: "5", status: "ACTIVE"
+  });
+  const [restockAmount, setRestockAmount] = useState("");
+  const [restockReason, setRestockReason] = useState("Restock");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (token) {
@@ -82,6 +120,145 @@ export default function ProductsPage() {
     outOfStock: products.filter((p) => p.stockLevel === 0).length,
   };
 
+  const handleEdit = (product: typeof products[0]) => {
+    setSelectedProduct(product);
+    setEditFormData({
+      name: product.name,
+      description: product.description || "",
+      categoryId: product.categoryId.toString(),
+      costPrice: product.costPrice.toString(),
+      sellingPrice: product.sellingPrice.toString(),
+      lowStockThreshold: product.lowStockThreshold.toString(),
+      status: product.status as "ACTIVE" | "INACTIVE",
+    });
+    setShowEditDialog(true);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleDelete = (product: typeof products[0]) => {
+    setSelectedProduct(product);
+    setShowDeleteDialog(true);
+    setError(null);
+  };
+
+  const handleRestock = (product: typeof products[0]) => {
+    setSelectedProduct(product);
+    setRestockAmount("");
+    setRestockReason("Restock");
+    setShowRestockDialog(true);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/products/${selectedProduct.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: editFormData.name,
+            description: editFormData.description || undefined,
+            categoryId: parseInt(editFormData.categoryId),
+            costPrice: parseFloat(editFormData.costPrice),
+            sellingPrice: parseFloat(editFormData.sellingPrice),
+            lowStockThreshold: parseInt(editFormData.lowStockThreshold),
+            status: editFormData.status,
+          }),
+        },
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) throw new Error(responseData.message || "Failed to update product");
+
+      setSuccess("Product updated successfully!");
+      setShowEditDialog(false);
+      if (token) fetchProducts(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update product");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!selectedProduct) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/products/${selectedProduct.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const responseData = await response.json();
+        throw new Error(responseData.message || "Failed to delete product");
+      }
+
+      setSuccess("Product deleted successfully!");
+      setShowDeleteDialog(false);
+      if (token) fetchProducts(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete product");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRestockProduct = async () => {
+    if (!selectedProduct || !restockAmount) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/products/${selectedProduct.id}/adjust-stock`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            adjustment: parseInt(restockAmount),
+            type: "RESTOCK",
+            reason: restockReason,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const responseData = await response.json();
+        throw new Error(responseData.message || "Failed to restock product");
+      }
+
+      setSuccess("Stock adjusted successfully!");
+      setShowRestockDialog(false);
+      if (token) fetchProducts(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to restock product");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -91,6 +268,22 @@ export default function ProductsPage() {
           <p className="text-sm text-gray-500">View and manage inventory</p>
         </div>
       </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {success && (
+        <Alert className="mb-6 bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-green-800">
+            {success}
+          </AlertDescription>
+        </Alert>
+      )}
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="border-0 shadow-md">
@@ -246,19 +439,20 @@ export default function ProductsPage() {
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
                         <p className="text-gray-500">Loading products...</p>
                       </TableCell>
                     </TableRow>
                   ) : filteredProducts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                         <p className="text-gray-500">No products found</p>
                       </TableCell>
@@ -282,22 +476,18 @@ export default function ProductsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {product.category?.name || "N/A"}
-                          </Badge>
+                          {categories.find((c) => c.id === product.categoryId)
+                            ?.name || "Uncategorized"}
                         </TableCell>
-                        <TableCell className="text-right font-semibold">
-                          {product.sellingPrice.toFixed(2)} Birr
+                        <TableCell className="text-right font-medium">
+                          {product.sellingPrice.toLocaleString()} Birr
                         </TableCell>
                         <TableCell className="text-right">
                           <span
-                            className={`font-semibold ${
-                              product.stockLevel === 0
+                            className={`font-medium ${
+                              product.stockLevel <= product.lowStockThreshold
                                 ? "text-red-600"
-                                : product.stockLevel <=
-                                    product.lowStockThreshold
-                                  ? "text-orange-600"
-                                  : "text-green-600"
+                                : "text-gray-900"
                             }`}
                           >
                             {product.stockLevel}
@@ -305,14 +495,45 @@ export default function ProductsPage() {
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={
+                            className={
                               product.status === "ACTIVE"
-                                ? "success"
-                                : "secondary"
+                                ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-100"
                             }
                           >
                             {product.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRestock(product)}
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              title="Restock"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(product)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(product)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -326,6 +547,192 @@ export default function ProductsPage() {
             </div>
           </CardContent>
         </Card>
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+            <DialogDescription>
+              Update product details and pricing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-4">
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="edit-name">Product Name</Label>
+              <Input
+                id="edit-name"
+                value={editFormData.name}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, name: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2 col-span-2">
+              <Label htmlFor="edit-desc">Description</Label>
+              <Input
+                id="edit-desc"
+                value={editFormData.description}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    description: e.target.value,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-cat">Category</Label>
+              <Select
+                value={editFormData.categoryId}
+                onValueChange={(value) =>
+                  setEditFormData({ ...editFormData, categoryId: value })
+                }
+              >
+                <SelectTrigger id="edit-cat">
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <Select
+                value={editFormData.status}
+                onValueChange={(value: "ACTIVE" | "INACTIVE") =>
+                  setEditFormData({ ...editFormData, status: value })
+                }
+              >
+                <SelectTrigger id="edit-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-cost">Cost Price</Label>
+              <Input
+                id="edit-cost"
+                type="number"
+                value={editFormData.costPrice}
+                onChange={(e) =>
+                  setEditFormData({ ...editFormData, costPrice: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-price">Selling Price</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                value={editFormData.sellingPrice}
+                onChange={(e) =>
+                  setEditFormData({
+                    ...editFormData,
+                    sellingPrice: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateProduct}
+              disabled={isSubmitting}
+              className="bg-[#1E5BA8]"
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Product</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedProduct?.name}? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteProduct}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Deleting..." : "Delete Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Restock Dialog */}
+      <Dialog open={showRestockDialog} onOpenChange={setShowRestockDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restock Product</DialogTitle>
+            <DialogDescription>
+              Add stock to {selectedProduct?.name}. Current stock: {selectedProduct?.stockLevel}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="restock-amount">Adjustment Amount</Label>
+              <Input
+                id="restock-amount"
+                type="number"
+                placeholder="e.g. 50"
+                value={restockAmount}
+                onChange={(e) => setRestockAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="restock-reason">Reason</Label>
+              <Input
+                id="restock-reason"
+                placeholder="Restock, Adjustment, etc."
+                value={restockReason}
+                onChange={(e) => setRestockReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowRestockDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRestockProduct}
+              disabled={isSubmitting || !restockAmount}
+              className="bg-[#1E5BA8]"
+            >
+              {isSubmitting ? "Updating..." : "Update Stock"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

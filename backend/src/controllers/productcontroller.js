@@ -1,4 +1,5 @@
 import { prisma } from "../config/db.js";
+import { generateSKU } from "../utils/utils.js";
 
 // Get all products with search and filtering
 export const getAllProducts = async (req, res) => {

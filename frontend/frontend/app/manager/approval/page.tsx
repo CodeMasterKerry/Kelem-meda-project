@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore, useSalesStore, type Sale, type SaleItem } from "@/store";
 import {
   Card,
@@ -37,13 +36,9 @@ import {
   Eye,
   CheckCircle,
   XCircle,
-  ArrowLeft,
-  LogOut,
   AlertCircle,
   Clock,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
 
 export default function ApprovalPage() {
   const { user, token } = useAuthStore();
@@ -105,7 +100,7 @@ export default function ApprovalPage() {
       const response = await fetch(
         `http://localhost:5000/api/sales/${selectedSale.id}/approve`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,

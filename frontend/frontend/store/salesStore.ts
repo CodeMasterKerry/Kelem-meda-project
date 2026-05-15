@@ -126,7 +126,7 @@ export const useSalesStore = create<SalesState>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(
-        `http://localhost:5000/api/sales/${id}/status`,
+        `http://localhost:5000/api/sales/${id}/approve`,
         {
           method: "PATCH",
           headers: {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuthStore, useProductStore, useSalesStore } from "@/store";
 import {
   Card,
@@ -21,11 +21,8 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
-  LogOut,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
   const { token } = useAuthStore();

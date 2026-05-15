@@ -174,6 +174,7 @@ export default function SalesOfficerDashboard() {
                   variant="outline"
                   className="h-24 border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-all"
                   size="lg"
+                  onClick={() => router.push("/sales-officer/reports")}
                 >
                   <div className="flex flex-col items-center space-y-2">
                     <Filter className="w-6 h-6" />
@@ -259,6 +260,7 @@ export default function SalesOfficerDashboard() {
                     variant="outline"
                     size="sm"
                     className="border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white"
+                    onClick={() => router.push("/sales-officer/products")}
                   >
                     View Products
                   </Button>

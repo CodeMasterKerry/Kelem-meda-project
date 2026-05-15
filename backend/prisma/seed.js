@@ -21,26 +21,26 @@ async function main() {
 
   // Create Users
   console.log("Creating users...");
-  const hashedPassword = await bcrypt.hash("password", 12);
+  const hashedPassword = await bcrypt.hash("12345678", 12);
 
   const manager = await prisma.user.upsert({
     where: { username: "manager" },
-    update: { password: hashedPassword },
+    update: {},
     create: {
-      username: "manager",
+      username: "fuadabdela95@gmail.com",
       password: hashedPassword,
-      name: "Manager User",
+      name: "Fuad Abdela",
       role: "MANAGER",
     },
   });
 
   const officer = await prisma.user.upsert({
     where: { username: "officer" },
-    update: { password: hashedPassword },
+    update: {},
     create: {
-      username: "officer",
+      username: "fuadabdela441@gmail.com",
       password: hashedPassword,
-      name: "Sales Officer",
+      name: "Fuad Seid",
       role: "SALES_OFFICER",
     },
   });

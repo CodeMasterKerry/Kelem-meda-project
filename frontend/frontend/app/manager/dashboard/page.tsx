@@ -37,25 +37,26 @@ export default function ManagerDashboard() {
   }, [token, fetchProducts, fetchSales]);
 
   // Calculate statistics
-  const pendingApprovals = sales.filter((sale) => sale.status === "PENDING");
-  const todaySales = sales.filter((sale) => {
+  const pendingApprovals = (sales || []).filter((sale) => sale && sale.status === "PENDING");
+  const todaySales = (sales || []).filter((sale) => {
+    if (!sale || !sale.createdAt) return false;
     const today = new Date().toDateString();
     return new Date(sale.createdAt).toDateString() === today;
   });
 
-  const approvedSales = sales.filter((sale) => sale.status === "APPROVED");
+  const approvedSales = (sales || []).filter((sale) => sale && sale.status === "APPROVED");
   const totalRevenue = approvedSales.reduce(
-    (sum, sale) => sum + sale.totalAmount,
+    (sum, sale) => sum + (sale.totalAmount || 0),
     0,
   );
   const todayRevenue = todaySales
-    .filter((sale) => sale.status === "APPROVED")
-    .reduce((sum, sale) => sum + sale.totalAmount, 0);
+    .filter((sale) => sale && sale.status === "APPROVED")
+    .reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
 
-  const lowStockProducts = products.filter(
-    (p) => p.stockLevel <= p.lowStockThreshold,
+  const lowStockProducts = (products || []).filter(
+    (p) => p && p.stockLevel <= p.lowStockThreshold,
   );
-  const outOfStockProducts = products.filter((p) => p.stockLevel === 0);
+  const outOfStockProducts = (products || []).filter((p) => p && p.stockLevel === 0);
 
   const stats = [
     {

@@ -102,21 +102,10 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo and Brand */}
         <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="flex justify-center mb-4">
-            <div className="relative w-24 h-24 bg-white rounded-2xl shadow-brand p-3">
-              <Image
-                src="/logo.png"
-                alt="Qelem Meda Technologies"
-                fill
-                className="object-contain p-2"
-                priority
-              />
-            </div>
-          </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-[#1E5BA8] to-[#F5A623] bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-[#1E5BA8] to-[#F5A623] bg-clip-text text-transparent">
             Qelem Meda POS
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Smart Point of Sale System
           </p>
         </div>

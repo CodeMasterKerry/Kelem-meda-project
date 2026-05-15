@@ -138,20 +138,9 @@ export default function AppSidebar() {
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
-              <div className="relative w-10 h-10 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5">
-                <div className="w-full h-full bg-white rounded-lg flex items-center justify-center">
-                  <Image
-                    src="/logo.png"
-                    alt="Logo"
-                    width={32}
-                    height={32}
-                    className="object-contain"
-                  />
-                </div>
-              </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">Qelem Meda</h1>
-                <p className="text-xs text-gray-500">POS System</p>
+                <h1 className="text-base font-bold text-gray-900">Qelem Meda</h1>
+                <p className="text-[10px] text-gray-500">POS System</p>
               </div>
             </div>
           </div>

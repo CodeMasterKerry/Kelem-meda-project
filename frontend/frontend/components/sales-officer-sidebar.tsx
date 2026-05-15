@@ -76,18 +76,7 @@ export function SalesOfficerSidebar() {
           href="/sales-officer/dashboard"
           className="flex items-center space-x-3"
         >
-          <div className="relative w-8 h-8 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5">
-            <div className="w-full h-full bg-white rounded-lg flex items-center justify-center overflow-hidden">
-              <Image
-                src="/logo.png"
-                alt="Logo"
-                width={24}
-                height={24}
-                className="object-contain"
-              />
-            </div>
-          </div>
-          <span className="font-bold text-lg text-gray-900 tracking-tight">
+          <span className="font-bold text-base text-gray-900 tracking-tight">
             Qelem Meda
           </span>
         </Link>

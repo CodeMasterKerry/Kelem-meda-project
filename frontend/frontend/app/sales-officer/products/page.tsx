@@ -92,10 +92,12 @@ export default function ProductsPage() {
   }, [token, fetchProducts, fetchCategories]);
 
   // Filter products
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = (products || []).filter((product) => {
+    if (!product) return false;
+
     const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      (product.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.sku || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesFilter =
       filterStatus === "ALL"
@@ -113,11 +115,11 @@ export default function ProductsPage() {
   });
 
   const stats = {
-    total: products.length,
-    active: products.filter((p) => p.status === "ACTIVE").length,
-    lowStock: products.filter((p) => p.stockLevel <= p.lowStockThreshold)
+    total: (products || []).length,
+    active: (products || []).filter((p) => p.status === "ACTIVE").length,
+    lowStock: (products || []).filter((p) => p && p.stockLevel <= p.lowStockThreshold)
       .length,
-    outOfStock: products.filter((p) => p.stockLevel === 0).length,
+    outOfStock: (products || []).filter((p) => p && p.stockLevel === 0).length,
   };
 
   const handleEdit = (product: typeof products[0]) => {
@@ -480,7 +482,7 @@ export default function ProductsPage() {
                             ?.name || "Uncategorized"}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {product.sellingPrice.toLocaleString()} Birr
+                          {Number(product.sellingPrice || 0).toLocaleString()} Birr
                         </TableCell>
                         <TableCell className="text-right">
                           <span

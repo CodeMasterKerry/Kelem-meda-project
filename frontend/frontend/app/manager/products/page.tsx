@@ -99,10 +99,12 @@ export default function ManagerProductsPage() {
   }, [token, fetchProducts, fetchCategories]);
 
   // Filter products
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = (products || []).filter((product) => {
+    if (!product) return false;
+
     const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      (product.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.sku || "").toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
       filterCategory === "ALL"
@@ -120,11 +122,11 @@ export default function ManagerProductsPage() {
   });
 
   const stats = {
-    total: products.length,
-    active: products.filter((p) => p.status === "ACTIVE").length,
-    lowStock: products.filter((p) => p.stockLevel <= p.lowStockThreshold)
+    total: (products || []).length,
+    active: (products || []).filter((p) => p.status === "ACTIVE").length,
+    lowStock: (products || []).filter((p) => p && p.stockLevel <= p.lowStockThreshold)
       .length,
-    outOfStock: products.filter((p) => p.stockLevel === 0).length,
+    outOfStock: (products || []).filter((p) => p && p.stockLevel === 0).length,
   };
 
   const handleEdit = (product: typeof products[0]) => {
@@ -292,30 +294,35 @@ export default function ManagerProductsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
-          <p className="text-sm text-gray-500">Manage and track product stock levels</p>
+          <p className="text-sm text-gray-500">Manage products, stock levels and pricing</p>
         </div>
-        <Button
-          className="bg-[#1E5BA8] hover:bg-[#164a8f]"
-          onClick={() => { setShowAddDialog(true); setError(null); setSuccess(null); }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => token && fetchProducts(token)}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button onClick={() => setShowAddDialog(true)} className="bg-[#1E5BA8] hover:bg-[#164a8f]">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       {success && (
-        <Alert className="bg-green-50 border-green-200">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            {success}
-          </AlertDescription>
+        <Alert className="mb-6 bg-green-50 border-green-200 text-green-800">
+          <CheckCircle className="h-4 w-4" />
+          <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
@@ -458,6 +465,7 @@ export default function ManagerProductsPage() {
                 <TableRow className="bg-gray-50">
                   <TableHead>SKU</TableHead>
                   <TableHead>Product Name</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead className="text-right">Price</TableHead>
                   <TableHead className="text-right">Stock</TableHead>
                   <TableHead>Status</TableHead>
@@ -467,16 +475,46 @@ export default function ManagerProductsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
                       <p className="text-gray-500">Loading products...</p>
                     </TableCell>
                   </TableRow>
+                ) : (products || []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-gray-500 font-medium">No products available in the database.</p>
+                      <p className="text-sm text-gray-400 mt-1">Try adding a new product or refreshing the list.</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4"
+                        onClick={() => token && fetchProducts(token)}
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                        Check Again
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ) : filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                      <p className="text-gray-500">No products found</p>
+                    <TableCell colSpan={7} className="text-center py-12">
+                      <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="text-gray-500 font-medium">No products match your filters.</p>
+                      <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filter settings.</p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="mt-4 text-blue-600"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setFilterCategory("ALL");
+                          setFilterStatus("ALL");
+                        }}
+                      >
+                        Clear All Filters
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -486,8 +524,13 @@ export default function ManagerProductsPage() {
                       <TableCell>
                         <p className="font-medium text-gray-900">{product.name}</p>
                       </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {product.sellingPrice.toFixed(2)} Birr
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {categories.find(c => c.id === product.categoryId)?.name || "N/A"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {Number(product.sellingPrice || 0).toLocaleString()} Birr
                       </TableCell>
                       <TableCell className="text-right">
                         <span className={`font-semibold ${
@@ -499,7 +542,13 @@ export default function ManagerProductsPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={product.status === "ACTIVE" ? "success" : "secondary"}>
+                        <Badge
+                          className={
+                            product.status === "ACTIVE"
+                              ? "bg-green-100 text-green-700 hover:bg-green-100"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-100"
+                          }
+                        >
                           {product.status}
                         </Badge>
                       </TableCell>

@@ -59,7 +59,7 @@ export const useProductStore = create<ProductState>((set) => ({
       }
 
       const responseData = await response.json();
-      set({ products: responseData.data, isLoading: false });
+      set({ products: responseData.data || [], isLoading: false });
     } catch (error) {
       set({
         error:

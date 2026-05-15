@@ -25,14 +25,8 @@ import {
   Package,
   AlertTriangle,
   TrendingUp,
-  Filter,
   RefreshCw,
-  LogOut,
-  ArrowLeft,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function ProductsPage() {
   const { token } = useAuthStore();

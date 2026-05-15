@@ -354,7 +354,6 @@ export default function MySalesPage() {
             </div>
           </CardContent>
         </Card>
-    </div>
 
       {/* Sale Details Dialog */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
@@ -373,33 +372,33 @@ export default function MySalesPage() {
                 <div>
                   <p className="text-sm text-gray-600">Date</p>
                   <p className="font-medium">
-                    {new Date(selectedSale.createdAt).toLocaleString()}
+                    {selectedSale?.createdAt ? new Date(selectedSale.createdAt).toLocaleString() : "N/A"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Status</p>
                   <Badge
                     variant={
-                      selectedSale.status === "APPROVED"
+                      selectedSale?.status === "APPROVED"
                         ? "success"
-                        : selectedSale.status === "PENDING"
+                        : selectedSale?.status === "PENDING"
                           ? "warning"
                           : "destructive"
                     }
                   >
-                    {selectedSale.status}
+                    {selectedSale?.status}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Payment Method</p>
                   <p className="font-medium">
-                    {selectedSale.paymentMethod || "N/A"}
+                    {selectedSale?.paymentMethod || "N/A"}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Prepared By</p>
                   <p className="font-medium">
-                    {selectedSale.preparedBy?.name || "N/A"}
+                    {selectedSale?.preparedBy?.name || "N/A"}
                   </p>
                 </div>
               </div>
@@ -419,7 +418,7 @@ export default function MySalesPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedSale.items?.map((item: SaleItem) => (
+                      {selectedSale?.items?.map((item: SaleItem) => (
                         <TableRow key={item.id}>
                           <TableCell>
                             <div>
@@ -455,51 +454,51 @@ export default function MySalesPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">
-                    {selectedSale.subtotal.toFixed(2)} Birr
+                    {selectedSale?.subtotal?.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Discount:</span>
                   <span className="font-medium text-red-600">
-                    -{selectedSale.discount.toFixed(2)} Birr
+                    -{selectedSale?.discount?.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Taxable Amount:</span>
                   <span className="font-medium">
-                    {selectedSale.taxableAmount.toFixed(2)} Birr
+                    {selectedSale?.taxableAmount?.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">VAT (15%):</span>
                   <span className="font-medium">
-                    {selectedSale.vat.toFixed(2)} Birr
+                    {selectedSale?.vat?.toFixed(2)} Birr
                   </span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total Amount:</span>
                   <span className="text-[#1E5BA8]">
-                    {selectedSale.totalAmount.toFixed(2)} Birr
+                    {selectedSale?.totalAmount?.toFixed(2)} Birr
                   </span>
                 </div>
               </div>
 
               {/* Approval Info */}
-              {selectedSale.approval && (
+              {selectedSale?.approval && (
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-2">Approval Information</h3>
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Approved By:</span>
                       <span className="font-medium">
-                        {selectedSale.approvedBy?.name || "N/A"}
+                        {selectedSale?.approvedBy?.name || "N/A"}
                       </span>
                     </div>
-                    {selectedSale.approval.comment && (
+                    {selectedSale?.approval?.comment && (
                       <div>
                         <span className="text-gray-600">Comment:</span>
                         <p className="mt-1 text-sm bg-gray-50 p-2 rounded">
-                          {selectedSale.approval.comment}
+                          {selectedSale?.approval?.comment}
                         </p>
                       </div>
                     )}

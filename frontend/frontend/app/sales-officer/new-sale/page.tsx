@@ -38,11 +38,7 @@ import {
   Search,
   AlertCircle,
   CheckCircle,
-  ArrowLeft,
-  LogOut,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
 
 interface CartItem {
   productId: string;

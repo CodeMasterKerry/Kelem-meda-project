@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuthStore, useProductStore, useSalesStore } from "@/store";
 import {
   Card,
@@ -20,9 +20,7 @@ import {
   Search,
   Filter,
   BarChart3,
-  LogOut,
 } from "lucide-react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function SalesOfficerDashboard() {

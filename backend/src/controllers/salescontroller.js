@@ -25,7 +25,7 @@ export const createSale = async (req, res) => {
     const result = await prisma.$transaction(async (tx) => {
       const saleItemsData = [];
 
-      // 1. Process each item
+      // 1. Prepare data and check stock availability for all items
       for (const item of items) {
         const product = await tx.product.findUnique({
           where: { id: item.productId },
@@ -59,31 +59,37 @@ export const createSale = async (req, res) => {
           vat: itemTotals.vat,
           total: itemTotals.total,
         });
-
-        // 2. Deduct stock
-        await tx.product.update({
-          where: { id: product.id },
-          data: { stockLevel: { decrement: item.quantity } },
-        });
-
-        // 3. Record inventory transaction
-        await tx.inventoryTransaction.create({
-          data: {
-            productId: product.id,
-            type: "OUT",
-            quantity: item.quantity,
-            reason: `Sale Transaction`,
-          },
-        });
       }
 
-      // 4. Calculate final totals using utils
+      // 2. Calculate final totals to determine if approval is required
       const saleTotals = calculateSaleTotal(saleItemsData, discountPercent);
+      const requiresApproval = saleTotals.requiresApproval;
 
-      // 5. Generate invoice number
+      // 3. Deduct stock ONLY if the sale does NOT require approval
+      // If it requires approval, stock will be deducted when the manager approves it.
+      if (!requiresApproval) {
+        for (const item of saleItemsData) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockLevel: { decrement: item.quantity } },
+          });
+
+          // Record inventory transaction
+          await tx.inventoryTransaction.create({
+            data: {
+              productId: item.productId,
+              type: "OUT",
+              quantity: item.quantity,
+              reason: `Sale Transaction`,
+            },
+          });
+        }
+      }
+
+      // 4. Generate invoice number
       const invoiceNumber = await generateInvoiceNumber();
 
-      // 6. Create Sale record
+      // 5. Create Sale record
       const sale = await tx.sale.create({
         data: {
           invoiceNumber,
@@ -93,8 +99,8 @@ export const createSale = async (req, res) => {
           vat: saleTotals.vat,
           totalAmount: saleTotals.totalAmount,
           paymentMethod,
-          requiresApproval: saleTotals.requiresApproval,
-          status: saleTotals.requiresApproval ? "PENDING" : "APPROVED",
+          requiresApproval: requiresApproval,
+          status: requiresApproval ? "PENDING" : "APPROVED",
           preparedById,
           items: {
             create: saleItemsData,
@@ -103,7 +109,7 @@ export const createSale = async (req, res) => {
         include: { items: true },
       });
 
-      // 7. Record financial transaction if approved immediately
+      // 6. Record financial transaction if approved immediately
       if (sale.status === "APPROVED") {
         await tx.financialTransaction.create({
           data: {
@@ -187,7 +193,10 @@ export const approveSale = async (req, res) => {
   const { status, comment, managerId } = req.body; // status: APPROVED or REJECTED
 
   try {
-    const sale = await prisma.sale.findUnique({ where: { id } });
+    const sale = await prisma.sale.findUnique({
+      where: { id },
+      include: { items: { include: { product: true } } },
+    });
     if (!sale)
       return res
         .status(404)
@@ -213,8 +222,38 @@ export const approveSale = async (req, res) => {
         },
       });
 
-      // If approved, record financial transaction
+      // If approved, deduct stock and record financial transaction
       if (status === "APPROVED") {
+        for (const item of sale.items) {
+          // Check stock availability again at approval time
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+
+          if (!product || product.stockLevel < item.quantity) {
+            throw new Error(
+              `Insufficient stock for product: ${product?.name || "Unknown"} at approval time.`,
+            );
+          }
+
+          // Deduct stock
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockLevel: { decrement: item.quantity } },
+          });
+
+          // Record inventory transaction
+          await tx.inventoryTransaction.create({
+            data: {
+              productId: item.productId,
+              type: "OUT",
+              quantity: item.quantity,
+              reason: `Sale Approved: ${sale.invoiceNumber}`,
+            },
+          });
+        }
+
+        // Record financial transaction
         await tx.financialTransaction.create({
           data: {
             saleId: sale.id,
@@ -225,28 +264,6 @@ export const approveSale = async (req, res) => {
             description: `Payment for Approved Sale ${sale.invoiceNumber}`,
           },
         });
-      }
-
-      // 3. If rejected, rollback stock?
-      // Business logic choice: usually, we hold stock until approved/rejected.
-      // If rejected, we should add back the stock.
-      if (status === "REJECTED") {
-        const items = await tx.saleItem.findMany({ where: { saleId: id } });
-        for (const item of items) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stockLevel: { increment: item.quantity } },
-          });
-
-          await tx.inventoryTransaction.create({
-            data: {
-              productId: item.productId,
-              type: "IN",
-              quantity: item.quantity,
-              reason: `Sale Rejected: ${id}`,
-            },
-          });
-        }
       }
 
       return updated;

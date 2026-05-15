@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAuthStore, useSalesStore, useProductStore } from "@/store";
 import {
   Card,
@@ -13,13 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   BarChart3,
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Package,
-  ShoppingCart,
   CheckCircle,
-  XCircle,
-  AlertCircle,
   RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +52,8 @@ export default function ManagerAnalyticsPage() {
       .length,
     MOBILE: approvedSales.filter((s) => s.paymentMethod === "MOBILE").length,
   };
-  const totalPayments = Object.values(paymentCounts).reduce((a, b) => a + b, 0) || 1;
+  const totalPayments =
+    Object.values(paymentCounts).reduce((a, b) => a + b, 0) || 1;
 
   // Sales by day (last 7 days)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -69,7 +66,11 @@ export default function ManagerAnalyticsPage() {
       (s) => new Date(s.createdAt).toDateString() === day.toDateString(),
     );
     return {
-      label: day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+      label: day.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
       count: daySales.length,
       revenue: daySales.reduce((s, x) => s + x.totalAmount, 0),
     };
@@ -77,7 +78,9 @@ export default function ManagerAnalyticsPage() {
   const maxRevenue = Math.max(...dailyData.map((d) => d.revenue), 1);
 
   // Low stock items
-  const lowStock = products.filter((p) => p.stockLevel <= p.lowStockThreshold && p.stockLevel > 0);
+  const lowStock = products.filter(
+    (p) => p.stockLevel <= p.lowStockThreshold && p.stockLevel > 0,
+  );
   const outOfStock = products.filter((p) => p.stockLevel === 0);
 
   // Status distribution bar
@@ -104,7 +107,9 @@ export default function ManagerAnalyticsPage() {
           onClick={() => token && fetchSales(token)}
           disabled={isLoading}
         >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+          />
           Refresh
         </Button>
       </div>
@@ -209,7 +214,9 @@ export default function ManagerAnalyticsPage() {
         {/* Status breakdown */}
         <Card className="border-0 shadow-md">
           <CardHeader>
-            <CardTitle className="text-base">Sales Status Distribution</CardTitle>
+            <CardTitle className="text-base">
+              Sales Status Distribution
+            </CardTitle>
             <CardDescription>
               Breakdown of all {sales.length} sales by status
             </CardDescription>
@@ -310,8 +317,10 @@ export default function ManagerAnalyticsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="bg-green-50 rounded-xl p-4 text-center">
               <p className="text-3xl font-bold text-green-600">
-                {products.filter((p) => p.stockLevel > p.lowStockThreshold)
-                  .length}
+                {
+                  products.filter((p) => p.stockLevel > p.lowStockThreshold)
+                    .length
+                }
               </p>
               <p className="text-sm text-green-700 font-medium mt-1">
                 Healthy Stock

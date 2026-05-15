@@ -1,4 +1,5 @@
 import { prisma } from "../config/db.js";
+import { createAuditLog } from "./auditcontroller.js";
 import {
   generateInvoiceNumber,
   calculateItemTotal,
@@ -104,6 +105,9 @@ export const createSale = async (req, res) => {
 
       return sale;
     });
+
+    // Audit Log
+    await createAuditLog(req.body.preparedById, "CREATE_SALE", "SALE", result.id);
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {
@@ -222,6 +226,9 @@ export const approveSale = async (req, res) => {
 
       return updated;
     });
+
+    // Audit Log
+    await createAuditLog(managerId, status === "APPROVED" ? "APPROVE_SALE" : "REJECT_SALE", "SALE", id);
 
     res.json({ success: true, data: updatedSale });
   } catch (error) {

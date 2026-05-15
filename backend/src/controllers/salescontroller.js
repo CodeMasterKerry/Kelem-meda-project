@@ -56,6 +56,7 @@ export const createSale = async (req, res) => {
       }
 
       // 4. Calculate final totals
+
       const discountAmount = subtotal * (discountPercent / 100);
       const taxableAmount = subtotal - discountAmount;
       const vatAmount = taxableAmount * VAT_RATE;
@@ -107,17 +108,21 @@ export const getSales = async (req, res) => {
 
     const where = {
       ...(status && { status }),
-      ...(startDate && endDate && {
-        createdAt: {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
-        },
-      }),
+      ...(startDate &&
+        endDate && {
+          createdAt: {
+            gte: new Date(startDate),
+            lte: new Date(endDate),
+          },
+        }),
     };
 
     const sales = await prisma.sale.findMany({
       where,
-      include: { preparedBy: { select: { name: true } }, approvedBy: { select: { name: true } } },
+      include: {
+        preparedBy: { select: { name: true } },
+        approvedBy: { select: { name: true } },
+      },
       orderBy: { createdAt: "desc" },
     });
 
@@ -140,7 +145,10 @@ export const getSaleById = async (req, res) => {
       },
     });
 
-    if (!sale) return res.status(404).json({ success: false, message: "Sale not found" });
+    if (!sale)
+      return res
+        .status(404)
+        .json({ success: false, message: "Sale not found" });
 
     res.json({ success: true, data: sale });
   } catch (error) {
@@ -154,7 +162,10 @@ export const approveSale = async (req, res) => {
 
   try {
     const sale = await prisma.sale.findUnique({ where: { id } });
-    if (!sale) return res.status(404).json({ success: false, message: "Sale not found" });
+    if (!sale)
+      return res
+        .status(404)
+        .json({ success: false, message: "Sale not found" });
 
     const updatedSale = await prisma.$transaction(async (tx) => {
       // 1. Update Sale status

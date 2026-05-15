@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      String   // "SALES_OFFICER" or "MANAGER"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model role {
+  id Int @id @default(autoincrement())
+  name String @unique
+  is_active Boolean @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+}
+model Product {
+  id           String         @id @default(uuid())
+  sku          String         @unique
+  name         String
+  category     String
+  costPrice    Float
+  sellingPrice Float
+  stockLevel   Int            @default(0)
+  status       String         @default("ACTIVE") // "ACTIVE" or "INACTIVE"
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  saleItems    SaleItem[]
+  stockHistory StockHistory[]
+}
+
+model Sale {
+  id            String     @id @default(uuid())
+  invoiceNumber String     @unique
+  subtotal      Float
+  discount      Float      @default(0)
+  taxableAmount Float
+  vat           Float      // 15%
+  totalAmount   Float
+  status        String     @default("APPROVED") // "PENDING", "APPROVED", "REJECTED"
+  preparedBy    String     // User ID
+  approvedBy    String?    // User ID (if required)
+  createdAt     DateTime   @default(now())
+  items         SaleItem[]
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  productId String
+  quantity  Int
+  unitPrice Float
+  subtotal  Float
+  sale      Sale    @relation(fields: [saleId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model StockHistory {
+  id        String   @id @default(uuid())
+  productId String
+  type      String   // "IN" or "OUT"
+  quantity  Int
+  reason    String?  // e.g., "SALE", "RESTOCK", "ADJUSTMENT"
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+}
+model approvals{
+  id Int @id @default(autoincrement())
+
+sale_id String
+manager_id String
+status String
+comment String
+approved_at DateTime @default(now())
+
+}

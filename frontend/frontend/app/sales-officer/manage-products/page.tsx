@@ -249,8 +249,8 @@ export default function ManageProductsPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            adjustment: parseInt(restockAmount),
-            type: "RESTOCK",
+            quantity: parseInt(restockAmount),
+            type: "IN",
             reason: restockReason,
           }),
         },

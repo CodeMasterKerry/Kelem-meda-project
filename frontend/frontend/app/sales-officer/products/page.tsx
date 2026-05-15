@@ -73,7 +73,7 @@ export default function ProductsPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRestockDialog, setShowRestockDialog] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<typeof products[0] | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({
     name: "", description: "", categoryId: "", costPrice: "",
     sellingPrice: "", lowStockThreshold: "5", status: "ACTIVE"
@@ -237,8 +237,8 @@ export default function ProductsPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            adjustment: parseInt(restockAmount),
-            type: "RESTOCK",
+            quantity: parseInt(restockAmount),
+            type: "IN",
             reason: restockReason,
           }),
         },

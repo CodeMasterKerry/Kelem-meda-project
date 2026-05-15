@@ -160,7 +160,7 @@ export default function ManagerProductsPage() {
       const res = await fetch(`http://localhost:5000/api/products/${selectedProduct.id}/adjust-stock`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ adjustment: qty, type: "RESTOCK", reason: "Manager Restock" }),
+        body: JSON.stringify({ quantity: qty, type: "IN", reason: "Manager Restock" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Restock failed");

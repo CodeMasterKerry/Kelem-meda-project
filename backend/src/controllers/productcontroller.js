@@ -35,11 +35,16 @@ export const getProductById = async (req, res) => {
     const { id } = req.params;
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { category: true, stockHistory: { take: 10, orderBy: { createdAt: "desc" } } },
+      include: {
+        category: true,
+        stockHistory: { take: 10, orderBy: { createdAt: "desc" } },
+      },
     });
 
     if (!product || product.isDeleted) {
-      return res.status(404).json({ success: false, message: "Product not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
 
     res.json({ success: true, data: product });
@@ -51,12 +56,23 @@ export const getProductById = async (req, res) => {
 // Create new product
 export const createProduct = async (req, res) => {
   try {
-    const { name, sku, description, categoryId, costPrice, sellingPrice, stockLevel, lowStockThreshold } = req.body;
+    const {
+      name,
+      sku,
+      description,
+      categoryId,
+      costPrice,
+      sellingPrice,
+      stockLevel,
+      lowStockThreshold,
+    } = req.body;
 
     // Check SKU uniqueness
     const existing = await prisma.product.findUnique({ where: { sku } });
     if (existing) {
-      return res.status(400).json({ success: false, message: "SKU already exists" });
+      return res
+        .status(400)
+        .json({ success: false, message: "SKU already exists" });
     }
 
     const product = await prisma.product.create({
@@ -96,10 +112,14 @@ export const updateProduct = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    if (updateData.categoryId) updateData.categoryId = parseInt(updateData.categoryId);
-    if (updateData.costPrice) updateData.costPrice = parseFloat(updateData.costPrice);
-    if (updateData.sellingPrice) updateData.sellingPrice = parseFloat(updateData.sellingPrice);
-    if (updateData.stockLevel !== undefined) updateData.stockLevel = parseInt(updateData.stockLevel);
+    if (updateData.categoryId)
+      updateData.categoryId = parseInt(updateData.categoryId);
+    if (updateData.costPrice)
+      updateData.costPrice = parseFloat(updateData.costPrice);
+    if (updateData.sellingPrice)
+      updateData.sellingPrice = parseFloat(updateData.sellingPrice);
+    if (updateData.stockLevel !== undefined)
+      updateData.stockLevel = parseInt(updateData.stockLevel);
 
     const product = await prisma.product.update({
       where: { id },
@@ -121,6 +141,96 @@ export const deleteProduct = async (req, res) => {
       data: { isDeleted: true },
     });
     res.json({ success: true, message: "Product deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Adjust stock (manual stock adjustment)
+export const adjustStock = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity, type, reason } = req.body; // type: IN or OUT
+
+    if (!["IN", "OUT"].includes(type)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid stock type. Use IN or OUT" });
+    }
+
+    const product = await prisma.product.findUnique({ where: { id } });
+    if (!product || product.isDeleted) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Update stock level
+      const updatedProduct = await tx.product.update({
+        where: { id },
+        data: {
+          stockLevel:
+            type === "IN"
+              ? { increment: parseInt(quantity) }
+              : { decrement: parseInt(quantity) },
+        },
+      });
+
+      // Record inventory transaction
+      await tx.inventoryTransaction.create({
+        data: {
+          productId: id,
+          type,
+          quantity: parseInt(quantity),
+          reason: reason || `Manual ${type} adjustment`,
+        },
+      });
+
+      return updatedProduct;
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get low stock products
+export const getLowStockProducts = async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: {
+        isDeleted: false,
+        status: "ACTIVE",
+        stockLevel: {
+          lte: prisma.raw("low_stock_threshold"),
+        },
+      },
+      include: { category: true },
+      orderBy: { stockLevel: "asc" },
+    });
+
+    res.json({ success: true, data: products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Get stock history for a product
+export const getStockHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50 } = req.query;
+
+    const history = await prisma.inventoryTransaction.findMany({
+      where: { productId: id },
+      include: { product: { select: { name: true, sku: true } } },
+      orderBy: { createdAt: "desc" },
+      take: parseInt(limit),
+    });
+
+    res.json({ success: true, data: history });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

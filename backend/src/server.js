@@ -1,10 +1,12 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { toNodeHandler } from "better-auth/node";
-import { auth } from "./lib/auth.js";
 import { prisma } from "./config/db.js";
 import healthRouter from "./routes/health.js";
+import authRoutes from "./routes/authroutes.js";
+import productRoutes from "./routes/productroutes.js";
+import salesRoutes from "./routes/salesroutes.js";
+import reportRoutes from "./routes/reportroutes.js";
 
 const app = express();
 
@@ -16,14 +18,15 @@ app.use(
   }),
 );
 
-// Better Auth handler MUST be before express.json()
-app.all("/api/auth/*", toNodeHandler(auth));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/health", healthRouter);
+app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/sales", salesRoutes);
+app.use("/api/reports", reportRoutes);
 
 // ── 404 Handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {

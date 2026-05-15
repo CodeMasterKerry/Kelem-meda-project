@@ -101,47 +101,58 @@ export default function AddProductPage() {
     }
   };
 
-  const validateForm = () => {
+  const validate = (data: typeof formData) => {
     const errors: { [key: string]: string } = {};
 
-    if (!formData.name.trim()) {
-      errors.name = "Product name is required";
-    } else if (formData.name.trim().length < 3) {
-      errors.name = "Product name must be at least 3 characters";
-    }
+    if (!data.name.trim()) errors.name = "Product name is required";
+    else if (data.name.trim().length < 3) errors.name = "Product name must be at least 3 characters";
 
-    if (!formData.categoryId) {
-      errors.categoryId = "Category is required";
-    }
+    if (!data.categoryId) errors.categoryId = "Category is required";
 
-    if (!formData.costPrice) {
-      errors.costPrice = "Cost price is required";
-    } else if (parseFloat(formData.costPrice) <= 0) {
-      errors.costPrice = "Cost price must be greater than 0";
-    }
+    if (!data.costPrice) errors.costPrice = "Cost price is required";
+    else if (parseFloat(data.costPrice) <= 0) errors.costPrice = "Cost price must be greater than 0";
 
-    if (!formData.sellingPrice) {
-      errors.sellingPrice = "Selling price is required";
-    } else if (parseFloat(formData.sellingPrice) <= 0) {
-      errors.sellingPrice = "Selling price must be greater than 0";
-    } else if (
-      parseFloat(formData.sellingPrice) < parseFloat(formData.costPrice)
-    ) {
+    if (!data.sellingPrice) errors.sellingPrice = "Selling price is required";
+    else if (parseFloat(data.sellingPrice) <= 0) errors.sellingPrice = "Selling price must be greater than 0";
+    else if (data.costPrice && parseFloat(data.sellingPrice) < parseFloat(data.costPrice)) {
       errors.sellingPrice = "Selling price must be greater than cost price";
     }
 
-    if (!formData.stockLevel) {
-      errors.stockLevel = "Stock level is required";
-    } else if (parseInt(formData.stockLevel) < 0) {
-      errors.stockLevel = "Stock level cannot be negative";
-    }
+    if (!data.stockLevel) errors.stockLevel = "Stock level is required";
+    else if (parseInt(data.stockLevel) < 0) errors.stockLevel = "Stock level cannot be negative";
 
-    if (!formData.lowStockThreshold) {
-      errors.lowStockThreshold = "Low stock threshold is required";
-    } else if (parseInt(formData.lowStockThreshold) < 0) {
-      errors.lowStockThreshold = "Low stock threshold cannot be negative";
-    }
+    if (!data.lowStockThreshold) errors.lowStockThreshold = "Low stock threshold is required";
+    else if (parseInt(data.lowStockThreshold) < 0) errors.lowStockThreshold = "Low stock threshold cannot be negative";
 
+    return errors;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    const newFormData = { ...formData, [field]: value };
+    setFormData(newFormData);
+    const errors = validate(newFormData);
+    
+    // Only update validation errors for fields that have been touched or if there are errors
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      // Clear error if it's fixed
+      if (!errors[field]) {
+        delete newErrors[field];
+      } else {
+        newErrors[field] = errors[field];
+      }
+      
+      // Cross-field validation update for selling price
+      if (field === 'costPrice' || field === 'sellingPrice') {
+        if (errors.sellingPrice) newErrors.sellingPrice = errors.sellingPrice;
+        else delete newErrors.sellingPrice;
+      }
+      return newErrors;
+    });
+  };
+
+  const validateForm = () => {
+    const errors = validate(formData);
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -202,13 +213,6 @@ export default function AddProductPage() {
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    if (validationErrors[field]) {
-      setValidationErrors((prev) => ({ ...prev, [field]: "" }));
-    }
-  };
-
   return (
     <div className="space-y-6">
 
@@ -241,7 +245,7 @@ export default function AddProductPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6" noValidate>
               {/* Product Name */}
               <div className="space-y-2">
                 <Label htmlFor="name">

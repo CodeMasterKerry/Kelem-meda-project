@@ -1,14 +1,6 @@
 E-SIMS
 
-This project contains the complete source code for the POS System, featuring a modern web frontend and a robust API backend.
-
-`/backend` - The Node.js/Express API backend using Prisma ORM and PostgreSQL.
-`/frontend/frontend` - The Next.js React frontend built with TailwindCSS and Shadcn UI.
-
-Before running the application, make sure you have the following installed on your local machine:
-[Node.js](https://nodejs.org/) (v18 or higher recommended)
-[PostgreSQL](https://www.postgresql.org/)
-A terminal (Command Prompt, PowerShell, Git Bash, etc.)
+the project worked on postgres for database,express and nodejs for backend and nextjs for frontend
 
 ## 1. Backend Setup & Execution
 

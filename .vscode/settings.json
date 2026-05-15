@@ -1,1 +1,12 @@
-{}
+{
+  "cSpell.words": [
+    "approvalroutes",
+    "authroutes",
+    "categoryroutes",
+    "inventoryroutes",
+    "productroutes",
+    "reportroutes",
+    "salesroutes",
+    "userroutes"
+  ]
+}

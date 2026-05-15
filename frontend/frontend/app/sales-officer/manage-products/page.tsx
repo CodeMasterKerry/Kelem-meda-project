@@ -87,6 +87,48 @@ export default function ManageProductsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [editValidationErrors, setEditValidationErrors] = useState<{ [key: string]: string }>({});
+  const validateEdit = (data: EditFormData) => {
+    const errors: { [key: string]: string } = {};
+
+    if (!data.name.trim()) errors.name = "Product name is required";
+    else if (data.name.trim().length < 3) errors.name = "Product name must be at least 3 characters";
+
+    if (!data.categoryId) errors.categoryId = "Category is required";
+
+    if (!data.costPrice) errors.costPrice = "Cost price is required";
+    else if (parseFloat(data.costPrice) <= 0) errors.costPrice = "Cost price must be greater than 0";
+
+    if (!data.sellingPrice) errors.sellingPrice = "Selling price is required";
+    else if (parseFloat(data.sellingPrice) <= 0) errors.sellingPrice = "Selling price must be greater than 0";
+    else if (data.costPrice && parseFloat(data.sellingPrice) < parseFloat(data.costPrice)) {
+      errors.sellingPrice = "Selling price must be greater than cost price";
+    }
+
+    if (!data.lowStockThreshold) errors.lowStockThreshold = "Low stock threshold is required";
+    else if (parseInt(data.lowStockThreshold) < 0) errors.lowStockThreshold = "Low stock threshold cannot be negative";
+
+    return errors;
+  };
+
+  const handleEditInputChange = (field: keyof EditFormData, value: string) => {
+    const newData = { ...editFormData, [field]: value };
+    setEditFormData(newData);
+    const errors = validateEdit(newData);
+    
+    setEditValidationErrors(prev => {
+      const newErrors = { ...prev };
+      if (!errors[field]) delete newErrors[field];
+      else newErrors[field] = errors[field];
+      
+      if (field === 'costPrice' || field === 'sellingPrice') {
+        if (errors.sellingPrice) newErrors.sellingPrice = errors.sellingPrice;
+        else delete newErrors.sellingPrice;
+      }
+      return newErrors;
+    });
+  };
+
 
 
   useEffect(() => {
@@ -137,6 +179,7 @@ export default function ManageProductsPage() {
       status: product.status,
     });
     setShowEditDialog(true);
+    setEditValidationErrors({});
     setError(null);
     setSuccess(null);
   };
@@ -158,6 +201,25 @@ export default function ManageProductsPage() {
 
   const handleUpdateProduct = async () => {
     if (!selectedProduct) return;
+
+    // Validate all fields before submission
+    const errors: { [key: string]: string } = {};
+    const nameError = validateEditField("name", editFormData.name);
+    if (nameError) errors.name = nameError;
+    const categoryError = validateEditField("categoryId", editFormData.categoryId);
+    if (categoryError) errors.categoryId = categoryError;
+    const costPriceError = validateEditField("costPrice", editFormData.costPrice);
+    if (costPriceError) errors.costPrice = costPriceError;
+    const sellingPriceError = validateEditField("sellingPrice", editFormData.sellingPrice);
+    if (sellingPriceError) errors.sellingPrice = sellingPriceError;
+    const lowStockThresholdError = validateEditField("lowStockThreshold", editFormData.lowStockThreshold);
+    if (lowStockThresholdError) errors.lowStockThreshold = lowStockThresholdError;
+
+    if (Object.keys(errors).length > 0) {
+      setEditValidationErrors(errors);
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -586,14 +648,19 @@ export default function ManageProductsPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Product Name</Label>
+              <Label htmlFor="edit-name">Product Name <span className="text-red-500">*</span></Label>
               <Input
                 id="edit-name"
                 value={editFormData.name || ""}
-                onChange={(e) =>
-                  setEditFormData({ ...editFormData, name: e.target.value })
-                }
+                onChange={(e) => handleEditInputChange("name", e.target.value)}
+                className={editValidationErrors.name ? "border-red-500" : ""}
               />
+              {editValidationErrors.name && (
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {editValidationErrors.name}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -601,24 +668,17 @@ export default function ManageProductsPage() {
               <Input
                 id="edit-description"
                 value={editFormData.description || ""}
-                onChange={(e) =>
-                  setEditFormData({
-                    ...editFormData,
-                    description: e.target.value,
-                  })
-                }
+                onChange={(e) => handleEditInputChange("description", e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-category">Category</Label>
+              <Label htmlFor="edit-category">Category <span className="text-red-500">*</span></Label>
               <Select
                 value={editFormData.categoryId || ""}
-                onValueChange={(value) =>
-                  setEditFormData({ ...editFormData, categoryId: value })
-                }
+                onValueChange={(value) => handleEditInputChange("categoryId", value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className={editValidationErrors.categoryId ? "border-red-500" : ""}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -632,56 +692,68 @@ export default function ManageProductsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {editValidationErrors.categoryId && (
+                <p className="text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {editValidationErrors.categoryId}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-costPrice">Cost Price</Label>
+                <Label htmlFor="edit-costPrice">Cost Price <span className="text-red-500">*</span></Label>
                 <Input
                   id="edit-costPrice"
                   type="number"
                   step="0.01"
                   value={editFormData.costPrice || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      costPrice: e.target.value,
-                    })
-                  }
+                  onChange={(e) => handleEditInputChange("costPrice", e.target.value)}
+                  className={editValidationErrors.costPrice ? "border-red-500" : ""}
                 />
+                {editValidationErrors.costPrice && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {editValidationErrors.costPrice}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-sellingPrice">Selling Price</Label>
+                <Label htmlFor="edit-sellingPrice">Selling Price <span className="text-red-500">*</span></Label>
                 <Input
                   id="edit-sellingPrice"
                   type="number"
                   step="0.01"
                   value={editFormData.sellingPrice || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      sellingPrice: e.target.value,
-                    })
-                  }
+                  onChange={(e) => handleEditInputChange("sellingPrice", e.target.value)}
+                  className={editValidationErrors.sellingPrice ? "border-red-500" : ""}
                 />
+                {editValidationErrors.sellingPrice && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {editValidationErrors.sellingPrice}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-threshold">Low Stock Threshold</Label>
+                <Label htmlFor="edit-threshold">Low Stock Threshold <span className="text-red-500">*</span></Label>
                 <Input
                   id="edit-threshold"
                   type="number"
                   value={editFormData.lowStockThreshold || ""}
-                  onChange={(e) =>
-                    setEditFormData({
-                      ...editFormData,
-                      lowStockThreshold: e.target.value,
-                    })
-                  }
+                  onChange={(e) => handleEditInputChange("lowStockThreshold", e.target.value)}
+                  className={editValidationErrors.lowStockThreshold ? "border-red-500" : ""}
                 />
+                {editValidationErrors.lowStockThreshold && (
+                  <p className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {editValidationErrors.lowStockThreshold}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

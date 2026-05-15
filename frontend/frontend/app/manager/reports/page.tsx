@@ -132,8 +132,6 @@ export default function ManagerReportsPage() {
     }
   };
 
-  // Load on mount and when mode/token changes — using a flag to avoid lint warning
-  // about calling setState inside useEffect directly (the fetch functions are stable refs)
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -145,17 +143,25 @@ export default function ManagerReportsPage() {
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, token]);
 
-  const handleExport = async (format: "excel" | "pdf", type: "sales" | "stock" = "sales") => {
+  const handleExport = async (
+    format: "excel" | "pdf",
+    type: "sales" | "stock" = "sales",
+  ) => {
     if (!token) return;
     setIsExporting(true);
     try {
       let endpoint = `http://localhost:5000/api/reports/export/${format}?type=${type}`;
-      let filename = type === "sales" ? `Sales_Report.${format === "excel" ? "xlsx" : "pdf"}` : `Stock_Report.${format === "excel" ? "xlsx" : "pdf"}`;
-      
+      let filename =
+        type === "sales"
+          ? `Sales_Report.${format === "excel" ? "xlsx" : "pdf"}`
+          : `Stock_Report.${format === "excel" ? "xlsx" : "pdf"}`;
+
       if (type === "sales") {
         endpoint += `&period=${mode}`;
         if (mode === "daily") {
@@ -169,7 +175,7 @@ export default function ManagerReportsPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Export failed");
-      
+
       const contentDisposition = res.headers.get("Content-Disposition");
       if (contentDisposition) {
         const match = contentDisposition.match(/filename="?([^"]+)"?/);
@@ -432,12 +438,19 @@ export default function ManagerReportsPage() {
       {mode === "daily" && dailySummary && (
         <Card className="border-0 shadow-md">
           <CardHeader>
-            <CardTitle className="text-base">Payment Method Breakdown</CardTitle>
+            <CardTitle className="text-base">
+              Payment Method Breakdown
+            </CardTitle>
             <CardDescription>
               Number of transactions per payment method on{" "}
               {new Date(dailySummary.date + "T00:00:00").toLocaleDateString(
                 "en-US",
-                { weekday: "long", year: "numeric", month: "long", day: "numeric" },
+                {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                },
               )}
             </CardDescription>
           </CardHeader>
@@ -471,7 +484,9 @@ export default function ManagerReportsPage() {
         <Card className="border-0 shadow-md">
           <CardHeader>
             <CardTitle className="text-base">Top Selling Products</CardTitle>
-            <CardDescription>By revenue for {monthlySummary?.period}</CardDescription>
+            <CardDescription>
+              By revenue for {monthlySummary?.period}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">

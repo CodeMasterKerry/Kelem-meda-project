@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore, useProductStore, useSalesStore } from "@/store";
 import {
   Card,
@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation";
 
 export default function SalesOfficerDashboard() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, isAuthenticated } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const { sales, fetchSales } = useSalesStore();
 
@@ -35,13 +35,30 @@ export default function SalesOfficerDashboard() {
     logout();
     router.push("/login");
   };
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (token) {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (mounted && token) {
       fetchProducts(token);
       fetchSales(token);
     }
-  }, [token, fetchProducts, fetchSales]);
+  }, [mounted, token, fetchProducts, fetchSales]);
+
+  useEffect(() => {
+    if (mounted) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (user && user.role !== "SALES_OFFICER") {
+        router.push(user.role === "MANAGER" ? "/manager/dashboard" : "/login");
+      }
+    }
+  }, [mounted, isAuthenticated, user, router]);
+
+  if (!mounted || !isAuthenticated) return null;
 
   // Calculate statistics
   const todaySales = sales.filter((sale) => {

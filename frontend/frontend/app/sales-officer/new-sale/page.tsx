@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore, useProductStore, useSalesStore } from "@/store";
+import { useAuthStore, useProductStore, type Product } from "@/store";
 import {
   Card,
   CardContent,
@@ -46,14 +46,14 @@ import Link from "next/link";
 
 interface CartItem {
   productId: string;
-  product: any;
+  product: Product;
   quantity: number;
   discountPercent: number;
 }
 
 export default function NewSalePage() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, isAuthenticated } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,11 +69,29 @@ export default function NewSalePage() {
     router.push("/login");
   };
 
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
-    if (token) {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (mounted && token) {
       fetchProducts(token);
     }
-  }, [token, fetchProducts]);
+  }, [mounted, token, fetchProducts]);
+
+  useEffect(() => {
+    if (mounted) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (user && user.role !== "SALES_OFFICER") {
+        router.push(user.role === "MANAGER" ? "/manager/dashboard" : "/login");
+      }
+    }
+  }, [mounted, isAuthenticated, user, router]);
+
+  if (!mounted || !isAuthenticated) return null;
 
   const filteredProducts = products.filter(
     (product) =>
@@ -83,7 +101,7 @@ export default function NewSalePage() {
         product.sku.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: Product) => {
     const existingItem = cart.find((item) => item.productId === product.id);
     if (existingItem) {
       if (existingItem.quantity < product.stockLevel) {
@@ -545,7 +563,7 @@ export default function NewSalePage() {
                         </Label>
                         <Select
                           value={paymentMethod}
-                          onValueChange={(value: any) =>
+                          onValueChange={(value: "CASH" | "TRANSFER" | "MOBILE") =>
                             setPaymentMethod(value)
                           }
                         >

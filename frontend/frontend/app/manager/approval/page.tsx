@@ -47,7 +47,7 @@ import Link from "next/link";
 
 export default function ApprovalPage() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, isAuthenticated } = useAuthStore();
   const { sales, fetchSales, isLoading } = useSalesStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -56,17 +56,34 @@ export default function ApprovalPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (mounted && token) {
+      fetchSales(token);
+    }
+  }, [mounted, token, fetchSales]);
+
+  useEffect(() => {
+    if (mounted) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (user && user.role !== "MANAGER") {
+        router.push(user.role === "SALES_OFFICER" ? "/sales-officer/dashboard" : "/login");
+      }
+    }
+  }, [mounted, isAuthenticated, user, router]);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
 
-  useEffect(() => {
-    if (token) {
-      fetchSales(token);
-    }
-  }, [token, fetchSales]);
+  if (!mounted || !isAuthenticated) return null;
 
   const pendingSales = sales.filter((sale) => sale.status === "PENDING");
 

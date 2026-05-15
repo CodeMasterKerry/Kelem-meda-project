@@ -38,9 +38,9 @@ export default function LoginPage() {
       errors.username = "Username must be at least 3 characters";
     } else if (username.trim().length > 50) {
       errors.username = "Username must not exceed 50 characters";
-    } else if (!/^[a-zA-Z0-9_.-]+$/.test(username.trim())) {
+    } else if (!/^[a-zA-Z0-9_.@-]+$/.test(username.trim())) {
       errors.username =
-        "Username can only contain letters, numbers, dots, hyphens, and underscores";
+        "Username can only contain letters, numbers, dots, @, hyphens, and underscores";
     }
 
     // Password validation

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore, useProductStore, useSalesStore } from "@/store";
 import {
   Card,
@@ -29,21 +29,38 @@ import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, isAuthenticated } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const { sales, fetchSales } = useSalesStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (mounted && token) {
+      fetchProducts(token);
+      fetchSales(token);
+    }
+  }, [mounted, token, fetchProducts, fetchSales]);
+
+  useEffect(() => {
+    if (mounted) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (user && user.role !== "MANAGER") {
+        router.push(user.role === "SALES_OFFICER" ? "/sales-officer/dashboard" : "/login");
+      }
+    }
+  }, [mounted, isAuthenticated, user, router]);
+
+  if (!mounted || !isAuthenticated) return null;
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
-
-  useEffect(() => {
-    if (token) {
-      fetchProducts(token);
-      fetchSales(token);
-    }
-  }, [token, fetchProducts, fetchSales]);
 
   // Calculate statistics
   const pendingApprovals = sales.filter((sale) => sale.status === "PENDING");

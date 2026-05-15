@@ -43,7 +43,7 @@ import Link from "next/link";
 
 export default function MySalesPage() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, isAuthenticated } = useAuthStore();
   const { sales, fetchSales, isLoading } = useSalesStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
@@ -51,17 +51,34 @@ export default function MySalesPage() {
   >("ALL");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (mounted && token) {
+      fetchSales(token);
+    }
+  }, [mounted, token, fetchSales]);
+
+  useEffect(() => {
+    if (mounted) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (user && user.role !== "SALES_OFFICER") {
+        router.push(user.role === "MANAGER" ? "/manager/dashboard" : "/login");
+      }
+    }
+  }, [mounted, isAuthenticated, user, router]);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
 
-  useEffect(() => {
-    if (token) {
-      fetchSales(token);
-    }
-  }, [token, fetchSales]);
+  if (!mounted || !isAuthenticated) return null;
 
   // Filter sales by current user
   const mySales = sales.filter((sale) => sale.preparedById === user?.id);

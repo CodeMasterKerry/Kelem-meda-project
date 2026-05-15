@@ -36,23 +36,40 @@ import { useRouter } from "next/navigation";
 
 export default function ProductsPage() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, isAuthenticated } = useAuthStore();
   const { products, fetchProducts, isLoading } = useProductStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK"
   >("ALL");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
+
+  useEffect(() => {
+    if (mounted && token) {
+      fetchProducts(token);
+    }
+  }, [mounted, token, fetchProducts]);
+
+  useEffect(() => {
+    if (mounted) {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else if (user && user.role !== "SALES_OFFICER") {
+        router.push(user.role === "MANAGER" ? "/manager/dashboard" : "/login");
+      }
+    }
+  }, [mounted, isAuthenticated, user, router]);
 
   const handleLogout = () => {
     logout();
     router.push("/login");
   };
 
-  useEffect(() => {
-    if (token) {
-      fetchProducts(token);
-    }
-  }, [token]);
+  if (!mounted || !isAuthenticated) return null;
 
   // Filter products
   const filteredProducts = products.filter((product) => {

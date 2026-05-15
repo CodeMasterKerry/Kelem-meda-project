@@ -29,10 +29,10 @@ async function main() {
 
   const manager = await prisma.user.upsert({
     where: { username: managerusername },
-    update: {},
+    update: { password: hashedPassword },
     create: {
       username: managerusername,
-      password: managerpassword,
+      password: hashedPassword,
       name: "Fuad Abdela",
       role: "MANAGER",
     },
@@ -40,10 +40,10 @@ async function main() {
 
   const officer = await prisma.user.upsert({
     where: { username: salesusername },
-    update: {},
+    update: { password: hashedPassword },
     create: {
       username: salesusername,
-      password: salespassword,
+      password: hashedPassword,
       name: "Fuad Seid",
       role: "SALES_OFFICER",
     },
@@ -209,12 +209,12 @@ async function main() {
   console.log("\n📝 Login Credentials:");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("Manager Account:");
-  console.log("  Username: manager");
-  console.log("  Password: password");
+  console.log(`  Username: ${managerusername}`);
+  console.log(`  Password: ${managerpassword}`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("Sales Officer Account:");
-  console.log("  Username: officer");
-  console.log("  Password: password");
+  console.log(`  Username: ${salesusername}`);
+  console.log(`  Password: ${salespassword}`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
 

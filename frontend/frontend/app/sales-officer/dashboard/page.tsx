@@ -20,13 +20,21 @@ import {
   Search,
   Filter,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function SalesOfficerDashboard() {
-  const { user, token } = useAuthStore();
+  const router = useRouter();
+  const { user, token, logout } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const { sales, fetchSales } = useSalesStore();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   useEffect(() => {
     if (token) {
@@ -108,6 +116,15 @@ export default function SalesOfficerDashboard() {
             </div>
 
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">
                   {user?.name}
@@ -178,6 +195,7 @@ export default function SalesOfficerDashboard() {
                 <Button
                   className="h-24 bg-gradient-to-r from-[#1E5BA8] to-[#164a8f] hover:from-[#164a8f] hover:to-[#1E5BA8] text-white shadow-md hover:shadow-lg transition-all"
                   size="lg"
+                  onClick={() => router.push("/sales-officer/new-sale")}
                 >
                   <div className="flex flex-col items-center space-y-2">
                     <Plus className="w-6 h-6" />
@@ -189,6 +207,7 @@ export default function SalesOfficerDashboard() {
                   variant="outline"
                   className="h-24 border-2 border-[#1E5BA8] text-[#1E5BA8] hover:bg-[#1E5BA8] hover:text-white transition-all"
                   size="lg"
+                  onClick={() => router.push("/sales-officer/products")}
                 >
                   <div className="flex flex-col items-center space-y-2">
                     <Search className="w-6 h-6" />
@@ -200,6 +219,7 @@ export default function SalesOfficerDashboard() {
                   variant="outline"
                   className="h-24 border-2 border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623] hover:text-white transition-all"
                   size="lg"
+                  onClick={() => router.push("/sales-officer/my-sales")}
                 >
                   <div className="flex flex-col items-center space-y-2">
                     <ShoppingCart className="w-6 h-6" />

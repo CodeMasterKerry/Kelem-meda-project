@@ -27,17 +27,26 @@ import {
   TrendingUp,
   Filter,
   RefreshCw,
+  LogOut,
+  ArrowLeft,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function ProductsPage() {
-  const { user, token } = useAuthStore();
+  const router = useRouter();
+  const { user, token, logout } = useAuthStore();
   const { products, fetchProducts, isLoading } = useProductStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK"
   >("ALL");
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   useEffect(() => {
     if (token) {
@@ -76,6 +85,15 @@ export default function ProductsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/sales-officer/dashboard")}
+                className="text-gray-600 hover:text-[#1E5BA8]"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
               <Link href="/sales-officer/dashboard">
                 <div className="relative w-10 h-10 bg-gradient-to-br from-[#1E5BA8] to-[#F5A623] rounded-lg p-0.5 cursor-pointer hover:scale-105 transition-transform">
                   <div className="w-full h-full bg-white rounded-lg flex items-center justify-center">
@@ -96,6 +114,15 @@ export default function ProductsPage() {
             </div>
 
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">
                   {user?.name}

@@ -23,14 +23,22 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
+  LogOut,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function ManagerDashboard() {
-  const { user, token } = useAuthStore();
+  const router = useRouter();
+  const { user, token, logout } = useAuthStore();
   const { products, fetchProducts } = useProductStore();
   const { sales, fetchSales } = useSalesStore();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
 
   useEffect(() => {
     if (token) {
@@ -127,6 +135,15 @@ export default function ManagerDashboard() {
             </div>
 
             <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-gray-600 hover:text-red-600 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">
                   {user?.name}

@@ -23,12 +23,51 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{
+    username?: string;
+    password?: string;
+  }>({});
+
+  const validateForm = () => {
+    const errors: { username?: string; password?: string } = {};
+
+    // Username validation
+    if (!username.trim()) {
+      errors.username = "Username is required";
+    } else if (username.trim().length < 3) {
+      errors.username = "Username must be at least 3 characters";
+    } else if (username.trim().length > 50) {
+      errors.username = "Username must not exceed 50 characters";
+    } else if (!/^[a-zA-Z0-9_.-]+$/.test(username.trim())) {
+      errors.username =
+        "Username can only contain letters, numbers, dots, hyphens, and underscores";
+    }
+
+    // Password validation
+    if (!password) {
+      errors.password = "Password is required";
+    } else if (password.length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    } else if (password.length > 100) {
+      errors.password = "Password must not exceed 100 characters";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setValidationErrors({});
 
-    await login(username, password);
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
+    // Trim username before sending
+    await login(username.trim(), password);
 
     // Check if login was successful
     const { isAuthenticated, user } = useAuthStore.getState();
@@ -39,6 +78,22 @@ export default function LoginPage() {
       } else {
         router.push("/sales-officer/dashboard");
       }
+    }
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUsername(e.target.value);
+    // Clear validation error when user starts typing
+    if (validationErrors.username) {
+      setValidationErrors((prev) => ({ ...prev, username: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+    // Clear validation error when user starts typing
+    if (validationErrors.password) {
+      setValidationErrors((prev) => ({ ...prev, password: undefined }));
     }
   };
 
@@ -148,8 +203,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-
           </CardContent>
         </Card>
 

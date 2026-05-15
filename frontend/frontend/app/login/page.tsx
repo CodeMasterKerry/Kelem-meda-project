@@ -58,10 +58,10 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-[#1E5BA8] to-[#F5A623] bg-clip-text text-transparent">
-            Qelem Meda POS
+            Qelem Meda
           </h1>
           <p className="text-muted-foreground mt-2">
-            Smart Point of Sale System
+            Smart Inventory and Sales Management System
           </p>
         </div>
 
@@ -130,14 +130,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 text-center text-sm text-muted-foreground">
-              <p>Demo Credentials:</p>
-              <div className="mt-2 space-y-1 text-xs">
-                <p className="font-medium">Manager: manager / password</p>
-                <p className="font-medium">Sales Officer: officer / password</p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

@@ -68,10 +68,10 @@ export default function ManagerProductsPage() {
   const { categories, fetchCategories } = useCategoryStore();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterStatus, setFilterStatus] = useState<
     "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK"
   >("ALL");
-  const [filterCategory, setFilterCategory] = useState<string>("ALL");
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -104,6 +104,11 @@ export default function ManagerProductsPage() {
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const matchesCategory =
+      filterCategory === "ALL"
+        ? true
+        : product.categoryId === parseInt(filterCategory);
+
     const matchesStatus =
       filterStatus === "ALL"
         ? true
@@ -111,12 +116,7 @@ export default function ManagerProductsPage() {
           ? product.stockLevel <= product.lowStockThreshold
           : product.status === filterStatus;
 
-    const matchesCategory =
-      filterCategory === "ALL"
-        ? true
-        : product.categoryId === parseInt(filterCategory);
-
-    return matchesSearch && matchesStatus && matchesCategory;
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const stats = {
@@ -209,6 +209,7 @@ export default function ManagerProductsPage() {
   };
 
   const handleUpdateProduct = async () => {
+    if (!selectedProduct) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -252,6 +253,7 @@ export default function ManagerProductsPage() {
   };
 
   const handleDeleteProduct = async () => {
+    if (!selectedProduct) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -421,6 +423,33 @@ export default function ManagerProductsPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="flex gap-2">
+              <Button
+                variant={filterStatus === "ALL" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterStatus("ALL")}
+                className={filterStatus === "ALL" ? "bg-[#1E5BA8]" : ""}
+              >
+                All
+              </Button>
+              <Button
+                variant={filterStatus === "ACTIVE" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterStatus("ACTIVE")}
+                className={filterStatus === "ACTIVE" ? "bg-green-600" : ""}
+              >
+                Active
+              </Button>
+              <Button
+                variant={filterStatus === "LOW_STOCK" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterStatus("LOW_STOCK")}
+                className={filterStatus === "LOW_STOCK" ? "bg-orange-600" : ""}
+              >
+                Low Stock
+              </Button>
+            </div>
           </div>
 
           <div className="border rounded-lg overflow-hidden">

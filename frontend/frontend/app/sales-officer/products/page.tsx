@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuthStore, useProductStore } from "@/store";
+import { useAuthStore, useProductStore, useCategoryStore } from "@/store";
 import {
   Card,
   CardContent,
@@ -28,19 +28,30 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 export default function ProductsPage() {
   const { token } = useAuthStore();
   const { products, fetchProducts, isLoading } = useProductStore();
+  const { categories, fetchCategories } = useCategoryStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
     "ALL" | "ACTIVE" | "INACTIVE" | "LOW_STOCK"
   >("ALL");
+  const [filterCategory, setFilterCategory] = useState<string>("ALL");
 
   useEffect(() => {
     if (token) {
       fetchProducts(token);
+      fetchCategories(token);
     }
-  }, [token, fetchProducts]);
+  }, [token, fetchProducts, fetchCategories]);
 
   // Filter products
   const filteredProducts = products.filter((product) => {
@@ -55,7 +66,12 @@ export default function ProductsPage() {
           ? product.stockLevel <= product.lowStockThreshold
           : product.status === filterStatus;
 
-    return matchesSearch && matchesFilter;
+    const matchesCategory =
+      filterCategory === "ALL"
+        ? true
+        : product.categoryId === parseInt(filterCategory);
+
+    return matchesSearch && matchesFilter && matchesCategory;
   });
 
   const stats = {
@@ -176,6 +192,19 @@ export default function ProductsPage() {
                   className="pl-10"
                 />
               </div>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id.toString()}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="flex gap-2">
                 <Button
                   variant={filterStatus === "ALL" ? "default" : "outline"}

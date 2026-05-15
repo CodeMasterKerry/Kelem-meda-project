@@ -16,7 +16,7 @@ router.use(protect);
 router
   .route("/")
   .get(getAllCategories)
-  .post(restrictTo("MANAGER"), createCategory);
+  .post(restrictTo("MANAGER", "SALES_OFFICER"), createCategory);
 
 router
   .route("/:id")

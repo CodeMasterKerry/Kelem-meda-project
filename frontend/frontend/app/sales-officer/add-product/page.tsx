@@ -20,12 +20,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Package,
   AlertCircle,
   CheckCircle,
   Loader2,
+  Plus,
 } from "lucide-react";
 
 export default function AddProductPage() {
@@ -50,12 +60,46 @@ export default function AddProductPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDesc, setNewCategoryDesc] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+
 
   useEffect(() => {
     if (token) {
       fetchCategories(token);
     }
   }, [token, fetchCategories]);
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setIsCreatingCategory(true);
+    try {
+      const response = await fetch("http://localhost:5000/api/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          description: newCategoryDesc.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create category");
+
+      await fetchCategories(token!);
+      setShowCategoryDialog(false);
+      setNewCategoryName("");
+      setNewCategoryDesc("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create category");
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
 
   const validateForm = () => {
     const errors: { [key: string]: string } = {};
@@ -238,31 +282,80 @@ export default function AddProductPage() {
                 <Label htmlFor="category">
                   Category <span className="text-red-500">*</span>
                 </Label>
-                <Select
-                  value={formData.categoryId}
-                  onValueChange={(value) =>
-                    handleInputChange("categoryId", value)
-                  }
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger
-                    className={
-                      validationErrors.categoryId ? "border-red-500" : ""
-                    }
-                  >
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem
-                        key={category.id}
-                        value={category.id.toString()}
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Select
+                      value={formData.categoryId}
+                      onValueChange={(value) =>
+                        handleInputChange("categoryId", value)
+                      }
+                      disabled={isSubmitting}
+                    >
+                      <SelectTrigger
+                        className={
+                          validationErrors.categoryId ? "border-red-500" : ""
+                        }
                       >
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem
+                            key={category.id}
+                            value={category.id.toString()}
+                          >
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" type="button" size="icon" className="shrink-0">
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add New Category</DialogTitle>
+                        <DialogDescription>
+                          Create a new category for products.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Category Name</Label>
+                          <Input 
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            placeholder="e.g. Electronics"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Description (Optional)</Label>
+                          <Input 
+                            value={newCategoryDesc}
+                            onChange={(e) => setNewCategoryDesc(e.target.value)}
+                            placeholder="Brief description"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleCreateCategory}
+                          disabled={isCreatingCategory || !newCategoryName.trim()}
+                          className="bg-[#1E5BA8]"
+                        >
+                          {isCreatingCategory ? "Creating..." : "Create Category"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 {validationErrors.categoryId && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />

@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.js";
-import PDFDocument from "pdfkit";
+import PDFDocument from "pdfkit-table";
 import XLSX from "xlsx";
 
 // Get daily sales report
@@ -133,14 +133,36 @@ export const getMonthlyReport = async (req, res) => {
 
 export const exportToExcel = async (req, res) => {
   try {
-    const { type } = req.query; // 'sales' or 'stock'
+    const { type, period, date, year, month } = req.query; // 'sales' or 'stock'
     let data = [];
     let filename = "";
 
     if (type === "sales") {
+      let whereClause = {}; // We export all or just approved? Usually approved
+      let suffix = "";
+
+      if (period === "daily") {
+        const targetDate = date ? new Date(date) : new Date();
+        targetDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(targetDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        whereClause.createdAt = { gte: targetDate, lt: nextDay };
+        suffix = `_${targetDate.toISOString().split("T")[0]}`;
+      } else if (period === "monthly") {
+        const targetYear = year ? parseInt(year) : new Date().getFullYear();
+        const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+        const firstDay = new Date(targetYear, targetMonth, 1);
+        const lastDay = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+        whereClause.createdAt = { gte: firstDay, lte: lastDay };
+        suffix = `_${targetYear}_${targetMonth + 1}`;
+      }
+
       const sales = await prisma.sale.findMany({
+        where: whereClause,
         include: { preparedBy: { select: { name: true } } },
+        orderBy: { createdAt: "desc" },
       });
+
       data = sales.map((s) => ({
         Invoice: s.invoiceNumber,
         Date: s.createdAt.toLocaleDateString(),
@@ -149,9 +171,9 @@ export const exportToExcel = async (req, res) => {
         VAT: s.vat,
         Total: s.totalAmount,
         Status: s.status,
-        PreparedBy: s.preparedBy.name,
+        PreparedBy: s.preparedBy?.name || "N/A",
       }));
-      filename = "Sales_Report.xlsx";
+      filename = `Sales_Report${suffix}.xlsx`;
     } else {
       const products = await prisma.product.findMany({
         where: { isDeleted: false },
@@ -160,7 +182,7 @@ export const exportToExcel = async (req, res) => {
       data = products.map((p) => ({
         SKU: p.sku,
         Name: p.name,
-        Category: p.category.name,
+        Category: p.category?.name || "N/A",
         Stock: p.stockLevel,
         Price: p.sellingPrice,
         Status: p.status,
@@ -186,43 +208,117 @@ export const exportToExcel = async (req, res) => {
 
 export const exportToPDF = async (req, res) => {
   try {
-    const { type } = req.query;
+    const { type, period, date, year, month } = req.query;
     const doc = new PDFDocument();
-    let filename = type === "sales" ? "Sales_Report.pdf" : "Stock_Report.pdf";
+
+    let filename = "";
+    let title = "";
+    let whereClause = {};
+
+    if (type === "sales") {
+      let suffix = "";
+      if (period === "daily") {
+        const targetDate = date ? new Date(date) : new Date();
+        targetDate.setHours(0, 0, 0, 0);
+        const nextDay = new Date(targetDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        whereClause.createdAt = { gte: targetDate, lt: nextDay };
+        suffix = `_${targetDate.toISOString().split("T")[0]}`;
+        title = `Daily Sales Report - ${targetDate.toLocaleDateString()}`;
+      } else if (period === "monthly") {
+        const targetYear = year ? parseInt(year) : new Date().getFullYear();
+        const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+        const firstDay = new Date(targetYear, targetMonth, 1);
+        const lastDay = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+        whereClause.createdAt = { gte: firstDay, lte: lastDay };
+        suffix = `_${targetYear}_${targetMonth + 1}`;
+        title = `Monthly Sales Report - ${targetMonth + 1}/${targetYear}`;
+      } else {
+        title = "Complete Sales Report";
+      }
+      filename = `Sales_Report${suffix}.pdf`;
+    } else {
+      filename = "Stock_Report.pdf";
+      title = "Current Stock Report";
+    }
 
     res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
     res.setHeader("Content-Type", "application/pdf");
     doc.pipe(res);
 
     doc.fontSize(20).text("Qelem Meda Technologies", { align: "center" });
-    doc.fontSize(16).text(`${type === "sales" ? "Sales" : "Stock"} Report`, {
-      align: "center",
-    });
+    doc.fontSize(16).text(title, { align: "center" });
     doc.moveDown();
 
     if (type === "sales") {
       const sales = await prisma.sale.findMany({
-        take: 50,
+        where: whereClause,
+        include: { preparedBy: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
       });
-      sales.forEach((s) => {
+      if (sales.length === 0) {
         doc
-          .fontSize(10)
-          .text(
-            `${s.invoiceNumber} | ${s.createdAt.toLocaleDateString()} | Total: ${s.totalAmount} Birr`,
-          );
-      });
+          .fontSize(12)
+          .text("No sales found for this period.", { align: "center" });
+      } else {
+        const table = {
+          title: "Sales Data",
+          headers: ["Invoice", "Date", "Status", "Amount (Birr)"],
+          rows: sales.map((s) => [
+            s.invoiceNumber,
+            s.createdAt.toLocaleDateString(),
+            s.status,
+            s.totalAmount.toString(),
+          ]),
+        };
+        await doc.table(table, {
+          prepareHeader: () => doc.font("Helvetica-Bold").fontSize(10),
+          prepareRow: () => doc.font("Helvetica").fontSize(10),
+        });
+
+        // Add signature block at the bottom
+        const user = await prisma.user.findUnique({
+          where: { id: req.user.id },
+        });
+        doc.moveDown(4);
+
+        const currentY = doc.y;
+        const preparers = [...new Set(sales.map(s => s.preparedBy?.name).filter(Boolean))].join(", ");
+        doc.font("Helvetica-Bold").fontSize(10);
+        doc.text(
+          `Prepared By: ${preparers || "_______________________"}`,
+          50,
+          currentY,
+        );
+        doc.text(
+          `Approved By: ${user?.name || "_______________________"}`,
+          350,
+          currentY,
+        );
+      }
     } else {
       const products = await prisma.product.findMany({
         where: { isDeleted: false },
+        orderBy: { name: "asc" },
       });
-      products.forEach((p) => {
-        doc
-          .fontSize(10)
-          .text(
-            `${p.sku} | ${p.name} | Stock: ${p.stockLevel} | Price: ${p.sellingPrice}`,
-          );
-      });
+      if (products.length === 0) {
+        doc.fontSize(12).text("No products found.", { align: "center" });
+      } else {
+        const table = {
+          title: "Inventory Data",
+          headers: ["SKU", "Product Name", "Stock Level", "Price (Birr)"],
+          rows: products.map((p) => [
+            p.sku,
+            p.name,
+            p.stockLevel.toString(),
+            p.sellingPrice.toString(),
+          ]),
+        };
+        await doc.table(table, {
+          prepareHeader: () => doc.font("Helvetica-Bold").fontSize(10),
+          prepareRow: () => doc.font("Helvetica").fontSize(10),
+        });
+      }
     }
 
     doc.end();

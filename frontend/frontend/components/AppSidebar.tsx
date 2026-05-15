@@ -12,7 +12,6 @@ import {
   Warehouse,
   FileText,
   CheckSquare,
-  Users,
   BarChart3,
   LogOut,
   Menu,
@@ -94,11 +93,6 @@ export default function AppSidebar() {
       icon: Warehouse,
       label: "Inventory",
       path: "/manager/inventory",
-    },
-    {
-      icon: Users,
-      label: "Users",
-      path: "/manager/users",
     },
   ];
 

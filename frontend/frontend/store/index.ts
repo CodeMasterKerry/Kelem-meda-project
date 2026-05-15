@@ -6,3 +6,4 @@ export { useProductStore } from "./productStore";
 export type { Product } from "./productStore";
 export { useSalesStore } from "./salesStore";
 export type { Sale, SaleItem } from "./salesStore";
+export { useUserStore } from "./userStore";

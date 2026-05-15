@@ -49,6 +49,8 @@ import {
   AlertCircle,
   CheckCircle,
   PackagePlus,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 // Typed interfaces for product forms
 interface ProductFormData {
@@ -90,6 +92,7 @@ export default function ManagerProductsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     if (token) {
@@ -254,6 +257,40 @@ export default function ManagerProductsPage() {
     }
   };
 
+  const handleExport = async (format: "excel" | "pdf") => {
+    if (!token) return;
+    setIsExporting(true);
+    try {
+      const endpoint = `http://localhost:5000/api/reports/export/${format}?type=stock`;
+      let filename = `Stock_Report.${format === "excel" ? "xlsx" : "pdf"}`;
+
+      const res = await fetch(endpoint, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Export failed");
+
+      const contentDisposition = res.headers.get("Content-Disposition");
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          filename = match[1];
+        }
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleDeleteProduct = async () => {
     if (!selectedProduct) return;
     setIsSubmitting(true);
@@ -304,6 +341,24 @@ export default function ManagerProductsPage() {
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleExport("excel")}
+            disabled={isExporting}
+            className="text-green-700 border-green-300 hover:bg-green-50"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleExport("pdf")}
+            disabled={isExporting}
+            className="text-red-700 border-red-300 hover:bg-red-50"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            PDF
           </Button>
           <Button onClick={() => setShowAddDialog(true)} className="bg-[#1E5BA8] hover:bg-[#164a8f]">
             <Plus className="w-4 h-4 mr-2" />

@@ -149,24 +149,40 @@ export default function ManagerReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, token]);
 
-  const handleExport = async (format: "excel" | "pdf") => {
+  const handleExport = async (format: "excel" | "pdf", type: "sales" | "stock" = "sales") => {
     if (!token) return;
     setIsExporting(true);
     try {
-      const endpoint =
-        format === "excel"
-          ? "http://localhost:5000/api/reports/export/excel?type=sales"
-          : "http://localhost:5000/api/reports/export/pdf?type=sales";
+      let endpoint = `http://localhost:5000/api/reports/export/${format}?type=${type}`;
+      let filename = type === "sales" ? `Sales_Report.${format === "excel" ? "xlsx" : "pdf"}` : `Stock_Report.${format === "excel" ? "xlsx" : "pdf"}`;
+      
+      if (type === "sales") {
+        endpoint += `&period=${mode}`;
+        if (mode === "daily") {
+          endpoint += `&date=${selectedDate}`;
+        } else {
+          endpoint += `&year=${selectedYear}&month=${selectedMonth}`;
+        }
+      }
+
       const res = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Export failed");
+      
+      const contentDisposition = res.headers.get("Content-Disposition");
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          filename = match[1];
+        }
+      }
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download =
-        format === "excel" ? "Sales_Report.xlsx" : "Sales_Report.pdf";
+      a.download = filename;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (e) {
@@ -192,7 +208,7 @@ export default function ManagerReportsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleExport("excel")}
+            onClick={() => handleExport("excel", "sales")}
             disabled={isExporting}
             className="text-green-700 border-green-300 hover:bg-green-50"
           >
@@ -202,7 +218,7 @@ export default function ManagerReportsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleExport("pdf")}
+            onClick={() => handleExport("pdf", "sales")}
             disabled={isExporting}
             className="text-red-700 border-red-300 hover:bg-red-50"
           >

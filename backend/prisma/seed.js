@@ -24,7 +24,7 @@ async function main() {
   const hashedPassword = await bcrypt.hash("12345678", 12);
   const salesusername = "fuadabdela441@gmail.com";
   const salespassword = "12345678";
-  const managerusername = "fuadabdela95@gmailcom";
+  const managerusername = "fuadabdela95@gmail.com";
   const managerpassword = "12345678";
 
   const manager = await prisma.user.upsert({
@@ -44,7 +44,7 @@ async function main() {
     create: {
       username: salesusername,
       password: hashedPassword,
-      name: "Fuad Seid",
+      name: "Fuad Abdela",
       role: "SALES_OFFICER",
     },
   });
